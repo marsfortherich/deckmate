@@ -49,6 +49,9 @@ A complete, dependency-free chess engine. Pure functions, immutable data.
 | `moveCards/` | `moveCardGenerator.ts` (legal moves → cards), `handManagerV2.ts` |
 | `deck/` | `deckBuilder.ts`, `deckManager.ts`, `deckTypes.ts` |
 | `cardLibrary.ts` | The 16 playable special cards and their deck-building limits |
+| `controller/state.ts` | `EnhancedGameState` shape + pure deck primitives |
+| `controller/effectMetadata.ts` | Interprets effect metadata; the continue-turn policy |
+| `controller/turnLifecycle.ts` | `checkGameOver`, `completeTurnChange` |
 | `enhancedGameController.ts` | **The main controller.** Single source of truth for a match. |
 
 #### The 16 special cards
@@ -61,12 +64,14 @@ Tactical Options, Tactical Reposition, Trap Field, Conversion, Recall.
 
 Three controllers exist; only one matters for the live app:
 
-- **`enhancedGameController.ts`** — used by the real game (both hooks). 1,563 lines,
-  33 public methods. Scheduled to be split up (see Roadmap Phase 1).
-- `gameController.ts` — older base controller, still imported by `enhancedGameController`.
-- `deckGameController.ts` — reachable only from `example-deckbuilding.ts`. Effectively dead.
+- **`enhancedGameController.ts`** — used by `useEnhancedGameState` and
+  `useSharedGameState`. 1,002 lines after the Phase 1 split; behaviour lives in
+  `controller/` (below) and the class delegates.
+- `gameController.ts` — older base controller, still backing `useGameState`,
+  which drives the single-player `GameView`.
 
-Likewise `moveCards/handManager.ts` is superseded by `handManagerV2.ts`.
+`deckGameController.ts` and `moveCards/handManager.ts` were removed in Phase 1;
+neither had an importer.
 
 ### UI layer — `src/ui/`
 
@@ -124,6 +129,13 @@ Styling is inline CSS objects. There is no CSS framework and no stylesheet.
 Comments and UI strings are a mix of German and English — the app's user-facing
 text is German. New code comments should be English; user-facing strings German.
 
+### Logging and errors
+Never call `console.log`; use `logger` from `src/utils/logger.ts`, which is
+compiled out of production builds. Never log hand or deck contents — the console
+is visible to the player, and in an online match that is the opponent's secret
+too. For caught errors use `getErrorMessage` / `getErrorCode` from
+`src/utils/errors.ts` rather than typing the catch binding as `any`.
+
 ## Key design decisions
 
 ### 1. Chess and cards are strictly separated
@@ -139,7 +151,7 @@ turn management.
 // effect
 return { newState: state, success: true, metadata: { action: 'drawCard', count: 2 } };
 
-// enhancedGameController.handleEffectMetadata()
+// controller/effectMetadata.ts -> applyEffectMetadata()
 case 'drawCard': /* controller decides how drawing works */
 ```
 
@@ -150,7 +162,8 @@ case 'drawCard': /* controller decides how drawing works */
   (swap, trap, convert)
 - **Require a selection step first:** `recoverCards` (Salvage), `activateUsedCard` (Recall)
 
-Governed by `shouldSpecialCardEndTurn()` and the `continueActions` list.
+Governed by `shouldSpecialCardEndTurn()` and `CONTINUE_TURN_ACTIONS` in
+`controller/effectMetadata.ts`.
 
 ### 4. Interactive cards enter a "pending" mode
 Cards needing board or card input set one of three pending states, and the UI
@@ -185,8 +198,8 @@ filled with random legal moves. This guarantees a playable hand and prevents dea
    `games/$matchId` to *any* authenticated user, not just the two players.
 4. **No draw conditions.** Checkmate is detected; stalemate, insufficient material,
    threefold repetition and the 50-move rule are not.
-5. **Thin test coverage.** 16 tests against ~21,800 lines.
-6. **Noisy logging.** ~430 `console.log` calls, some of which print hand contents.
+5. **Thin test coverage.** 30 tests against ~20,700 lines.
+6. ~~Noisy logging.~~ Fixed in Phase 1 — see `src/utils/logger.ts`.
 7. **Single 997 kB JS bundle.** No code splitting.
 8. **Move card generation can be slow** when many legal moves exist.
 
@@ -219,8 +232,8 @@ and must never be committed — this repository is public.
 2. **Export it** from `src/cards/effects/index.ts`.
 3. **Register the card** in `src/cards/cardLibrary.ts` with rarity, cost, `maxCopies`
    and category.
-4. **Handle the metadata** in `enhancedGameController.handleEffectMetadata()`, and add
-   the action to `continueActions` if it should not end the turn.
+4. **Handle the metadata** in `applyEffectMetadata()` in `controller/effectMetadata.ts`,
+   and add the action to `CONTINUE_TURN_ACTIONS` if it should not end the turn.
 5. **If interactive**, add the mode to the game views: banner, board interaction, and
    the card-selection disable logic.
 
@@ -233,8 +246,8 @@ register the route in `src/ui/routes/GameRouter.tsx`, and link it from `MainMenu
 Tracked in full in [ROADMAP.md](ROADMAP.md).
 
 - **Phase 0 — Foundation** ✅ git, ignore rules, green tests, lint, CI, this document
-- **Phase 1 — Debt cleanup** — logger, delete dead controllers, split the 1,563-line
-  god object, reduce `any`
+- **Phase 1 — Debt cleanup** ✅ logger, dead code removed, controller split, `any`
+  reduced, controller characterisation tests
 - **Phase 2 — Fix multiplayer** — split public/private state, lock down security rules,
   make Cloud Functions authoritative, server-side RNG
 - **Phase 3 — Finishable games** — draw conditions, timers, reconnect, balance, polish

@@ -24,22 +24,31 @@ Completed 2026-09-20.
 
 ---
 
-## Phase 1 — Debt cleanup
+## Phase 1 — Debt cleanup ✅
 
-Goal: make the codebase small enough to reason about before changing its architecture.
+Completed 2026-09-20.
 
-- [ ] **Logger module.** Replace ~430 `console.log` calls with a `logger` gated on
-      `import.meta.env.DEV`. Delete outright the ones in `realtimeGameService.ts` that
-      print hand and deck contents.
-- [ ] **Delete dead code.** `deckGameController.ts` and `moveCards/handManager.ts` are
-      superseded. Move `src/example-*.ts` and `src/test-*.ts` out of `src/` into
-      `scripts/` so they stop reading as application source.
-- [ ] **Split `enhancedGameController.ts`** (1,563 lines, 33 public methods). Natural
-      seams: turn lifecycle · effect-metadata dispatch · card-selection flow ·
-      board-action flow.
-- [ ] **Reduce `any`.** ~98 warnings, concentrated in the sync layer where they hide
-      real shape mismatches.
-- [ ] **Fix the 3 `react-hooks/exhaustive-deps` warnings** — these are latent stale-closure bugs.
+- [x] **Logger module.** `src/utils/logger.ts`; all 123 `console.log` calls in `src/`
+      now go through `logger.debug`, compiled out of production. The RTDB
+      shape-probe blocks that logged both players' hand keys are gone.
+- [x] **Delete dead code.** Removed `deckGameController.ts` and
+      `moveCards/handManager.ts` (no importers) plus their demos; moved the eight dev
+      scripts to `scripts/`. Note `gameController.ts` is **not** dead — it backs
+      `useGameState`.
+- [x] **Split `enhancedGameController.ts`** 1,563 → 1,002 lines, with
+      `controller/state.ts`, `controller/effectMetadata.ts` and
+      `controller/turnLifecycle.ts` extracted as pure functions.
+- [x] **Reduce `any`.** 96 → 51 warnings. `SerializedGameState` now declares `Color`
+      instead of `string`, removing nine `as any` casts in the sync layer, and 32
+      `catch (e: any)` blocks use the new `src/utils/errors.ts` helpers.
+- [x] **Fix the 3 `react-hooks/exhaustive-deps` warnings** — two were live
+      stale-state bugs (DeckBuilder, MultiplayerGameView).
+- [x] **Added 14 characterisation tests** for the controller before refactoring it.
+
+Deferred to Phase 2, where this code is being reworked anyway: the remaining 51
+`any` warnings, which are dynamic Firebase JSON reconstruction in
+`gameStateSerializer` and test mocks; and the card-selection / board-action
+extractions from the controller.
 
 ---
 
