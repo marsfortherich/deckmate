@@ -6,7 +6,6 @@
     "jsx": "react-jsx",
     "types": ["node", "vitest/globals", "@testing-library/jest-dom", "vite/client"],
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -30,7 +29,7 @@
     "src/services/**/*",
     "src/ui/**/*",
     "src/test/**/*",
-    "src/example*.ts"
+    "scripts/**/*"
   ],
   "exclude": ["node_modules", "dist", "src/ui"]
 }

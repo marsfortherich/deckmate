@@ -65,7 +65,7 @@ export default tseslint.config(
 
   // Config files and standalone scripts
   {
-    files: ['*.config.{ts,js}', 'electron.js', 'src/test-*.ts', 'src/migrate-*.ts'],
+    files: ['*.config.{ts,js}', 'electron.js', 'scripts/**/*.ts'],
     languageOptions: {
       globals: { ...globals.node },
     },

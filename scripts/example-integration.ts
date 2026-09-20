@@ -12,7 +12,7 @@ import {
   generatePieceMoves,
   type GameState,
   type Move,
-} from './core/index.js';
+} from '../src/core/index.js';
 
 import {
   playCard,
@@ -20,7 +20,7 @@ import {
   timeFreezeCard,
   type EffectParams,
   NO_PARAMS,
-} from './cards/index.js';
+} from '../src/cards/index.js';
 
 console.log('=== Schach + Karten Integration ===\n');
 

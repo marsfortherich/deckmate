@@ -8,7 +8,7 @@
  */
 
 import { collection, getDocs } from 'firebase/firestore';
-import { db } from './services/firebase';
+import { db } from '../src/services/firebase';
 
 async function migrateUserEmails() {
   console.log('🔧 Starting email migration...\n');

@@ -4,12 +4,12 @@
  * Verifies that the card selection dialog appears and cards can be selected from used pile
  */
 
-import { EnhancedGameController } from './cards/enhancedGameController.js';
-import { Card } from './cards/types/card.js';
-import { NO_PARAMS } from './cards/types/effect.js';
+import { EnhancedGameController } from '../src/cards/enhancedGameController.js';
+import { Card } from '../src/cards/types/card.js';
+import { NO_PARAMS } from '../src/cards/types/effect.js';
 
 // Import the Salvage and Recall cards
-import { CARD_LIBRARY } from './cards/cardLibrary.js';
+import { CARD_LIBRARY } from '../src/cards/cardLibrary.js';
 
 console.log('Testing Salvage and Recall Cards');
 console.log('='.repeat(50));

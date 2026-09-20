@@ -4,7 +4,7 @@
  * Demonstriert die Verwendung des Kartensystems.
  */
 
-import { createInitialGameState } from './core/index.js';
+import { createInitialGameState } from '../src/core/index.js';
 import {
   playCard,
   summonKnightCard,
@@ -14,8 +14,8 @@ import {
   desperateSummonCard,
   type EffectParams,
   NO_PARAMS,
-} from './cards/index.js';
-import { getPieceAt } from './core/index.js';
+} from '../src/cards/index.js';
+import { getPieceAt } from '../src/core/index.js';
 
 console.log('=== Kartensystem Demo ===\n');
 

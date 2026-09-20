@@ -17,11 +17,10 @@ import {
   findUserByEmail,
   getIncomingRequests,
   getOutgoingRequests,
-} from './services/friendService';
+} from '../src/services/friendService';
 
 const TEST_USER_1_UID = 'test-user-1';
 const TEST_USER_1_NAME = 'Alice';
-const _TEST_USER_1_EMAIL = 'alice@test.com';
 
 const TEST_USER_2_UID = 'test-user-2';
 const TEST_USER_2_NAME = 'Bob';

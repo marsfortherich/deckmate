@@ -16,7 +16,7 @@ import {
   setInGameStatus, 
   subscribeToUserStatus,
   PresenceStatus 
-} from './services/presenceService';
+} from '../src/services/presenceService';
 
 const TEST_USER_ID = 'test-user-' + Date.now();
 

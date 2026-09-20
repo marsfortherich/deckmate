@@ -17,11 +17,6 @@ export * from './cards/basicCards.js';
 
 // Move Cards & Hand Management
 export * from './moveCards/moveCardGenerator.js';
-export * from './moveCards/handManager.js';
 
 // Deckbuilding System
 export * from './deck/index.js';
-
-// Game Controllers
-export * from './gameController.js';
-export * from './deckGameController.js';
