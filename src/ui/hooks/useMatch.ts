@@ -9,6 +9,7 @@ import {
   subscribeToMatch,
   getMatch as getMatchService,
 } from '../../services/matchService';
+import { logger } from '../../utils/logger';
 
 export interface UseMatchReturn {
   match: Match | null;
@@ -72,7 +73,7 @@ export const useMatch = (matchId?: string): UseMatchReturn => {
         setActiveMatchId(newMatchId);
 
         if (import.meta.env.DEV) {
-          console.log('🎮 Match created:', newMatchId);
+          logger.debug('🎮 Match created:', newMatchId);
         }
 
         return newMatchId;
@@ -97,7 +98,7 @@ export const useMatch = (matchId?: string): UseMatchReturn => {
       await acceptMatchService(activeMatchId);
 
       if (import.meta.env.DEV) {
-        console.log('✅ Match accepted:', activeMatchId);
+        logger.debug('✅ Match accepted:', activeMatchId);
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Fehler beim Akzeptieren des Matches';
@@ -118,7 +119,7 @@ export const useMatch = (matchId?: string): UseMatchReturn => {
         await updateGameStateService(activeMatchId, gameState);
 
         if (import.meta.env.DEV) {
-          console.log('🎮 Game state updated');
+          logger.debug('🎮 Game state updated');
         }
       } catch (err: any) {
         const errorMessage = err.message || 'Fehler beim Update des Game-States';
@@ -140,7 +141,7 @@ export const useMatch = (matchId?: string): UseMatchReturn => {
       await finishMatchService(activeMatchId);
 
       if (import.meta.env.DEV) {
-        console.log('🏁 Match finished:', activeMatchId);
+        logger.debug('🏁 Match finished:', activeMatchId);
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Fehler beim Beenden des Matches';

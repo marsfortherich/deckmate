@@ -10,6 +10,7 @@ import { Card } from '../cards/types/card';
 import { GameState, Position, PieceType } from '../core/types';
 import { PlayerHand } from '../cards/moveCards/handManagerV2';
 import { createMoveCard } from '../cards/moveCards/moveCardGenerator';
+import { logger } from '../utils/logger';
 
 /**
  * Serializable version of EnhancedGameState
@@ -167,7 +168,7 @@ function cleanUndefined(obj: any): any {
 export function serializeGameState(
   state: EnhancedGameState
 ): SerializedGameState {
-  console.log('🔍 Serializing state - move cards:', {
+  logger.debug('🔍 Serializing state - move cards:', {
     whiteMoveCards: state.whiteHand.moveCards.length,
     blackMoveCards: state.blackHand.moveCards.length,
   });
@@ -213,41 +214,17 @@ export function serializeGameState(
     })),
   };
   
-  console.log('🔍 Serialized move cards:', {
-    whiteSerializedCount: serialized.whiteHand.moveCards.length,
-    blackSerializedCount: serialized.blackHand.moveCards.length,
-    whiteSample: serialized.whiteHand.moveCards[0],
-  });
-  
-  // Debug: Check board structure before cleaning
-  console.log('🔍 Board before cleanUndefined:', {
-    isArray: Array.isArray(serialized.gameState.boardState.board),
-    length: serialized.gameState.boardState.board.length,
-    firstRow: serialized.gameState.boardState.board[0],
-  });
-  
   // Clean all undefined values (Firebase doesn't allow undefined)
   const cleaned = cleanUndefined(serialized) as SerializedGameState;
-  
-  // Debug: Log hand structure after cleaning
-  console.log('🔍 Hands after cleanUndefined:', {
-    hasWhiteHand: !!cleaned.whiteHand,
-    hasBlackHand: !!cleaned.blackHand,
-    whiteHandKeys: cleaned.whiteHand ? Object.keys(cleaned.whiteHand) : null,
-    blackHandKeys: cleaned.blackHand ? Object.keys(cleaned.blackHand) : null,
-    whiteMoveCards: cleaned.whiteHand?.moveCards?.length ?? 'missing',
-    blackMoveCards: cleaned.blackHand?.moveCards?.length ?? 'missing',
-  });
-  
-  // Debug: Check board structure after cleaning
-  console.log('🔍 Board after cleanUndefined:', {
-    isArray: Array.isArray(cleaned.gameState.boardState.board),
-    length: cleaned.gameState.boardState.board?.length,
-    keys: typeof cleaned.gameState.boardState.board === 'object' 
-      ? Object.keys(cleaned.gameState.boardState.board) 
-      : 'N/A',
-  });
-  
+
+  // `cleanUndefined` walks the whole tree, and a board that comes back as an
+  // object instead of an array is the failure mode worth catching here.
+  if (!Array.isArray(cleaned.gameState.boardState.board)) {
+    logger.error('Serialization corrupted the board: expected an array', {
+      received: typeof cleaned.gameState.boardState.board,
+    });
+  }
+
   return cleaned;
 }
 
@@ -264,7 +241,7 @@ function deserializeMoveCard(
   
   // Check what piece is at the from position
   const pieceAtFrom = board[from.row]?.[from.col];
-  console.log('🔍 Deserializing move card:', {
+  logger.debug('🔍 Deserializing move card:', {
     id: serialized.id,
     from: serialized.from,
     to: serialized.to,
@@ -307,7 +284,7 @@ export function deserializeGameState(
   blackDeck: readonly Card[]
 ): EnhancedGameState {
   // Debug: Check board structure on deserialization
-  console.log('🔍 Deserializing - board structure:', {
+  logger.debug('🔍 Deserializing - board structure:', {
     isArray: Array.isArray(serialized.gameState?.boardState?.board),
     type: typeof serialized.gameState?.boardState?.board,
     length: serialized.gameState?.boardState?.board?.length,
@@ -319,7 +296,7 @@ export function deserializeGameState(
   // Log what Firebase actually stored at each index
   if (serialized.gameState?.boardState?.board) {
     const board = serialized.gameState.boardState.board;
-    console.log('🔍 Raw board data from Firebase:', {
+    logger.debug('🔍 Raw board data from Firebase:', {
       row0: board[0]?.[0], // Should be white rook
       row1: board[1]?.[0], // Should be white pawn
       row6: board[6]?.[0], // Should be black pawn
@@ -337,7 +314,7 @@ export function deserializeGameState(
     // Check if this is a sparse array (Firebase removed null rows)
     const isObject = !Array.isArray(boardData);
     const keys = Object.keys(boardData);
-    console.log('🔍 Board reconstruction:', {
+    logger.debug('🔍 Board reconstruction:', {
       isObject,
       keys,
       isSparse: keys.length < 8,
@@ -389,7 +366,7 @@ export function deserializeGameState(
       // Ensure moveHistory array exists
       moveHistory: serialized.gameState.moveHistory || [],
     };
-    console.log('✅ Fixed board structure - always 8x8:', {
+    logger.debug('✅ Fixed board structure - always 8x8:', {
       isArray: Array.isArray(boardArray),
       length: boardArray.length,
       rowLengths: boardArray.map(row => row?.length),
@@ -487,7 +464,7 @@ export function deserializeGameState(
     .map(mc => deserializeMoveCard(mc, gameState.boardState.board, 'black'))
     .filter((c): c is Card => c !== null);
 
-  console.log('🔍 Deserialized move cards:', {
+  logger.debug('🔍 Deserialized move cards:', {
     whiteCount: whiteMoveCards.length,
     blackCount: blackMoveCards.length,
     whiteSample: whiteMoveCards[0]?.id,

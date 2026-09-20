@@ -51,6 +51,14 @@ export default tseslint.config(
     },
   },
 
+  // The logger is the one module allowed to touch console directly.
+  {
+    files: ['src/utils/logger.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+
   // Cloud Functions run on Node, not in the browser
   {
     files: ['functions/src/**/*.ts'],

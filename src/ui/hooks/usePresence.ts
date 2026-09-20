@@ -6,6 +6,7 @@ import {
   subscribeToUserStatus,
   PresenceStatus,
 } from '../../services/presenceService';
+import { logger } from '../../utils/logger';
 
 interface UsePresenceReturn {
   setInGame: (inGame: boolean) => Promise<void>;
@@ -34,7 +35,7 @@ export const usePresence = (): UsePresenceReturn => {
       try {
         await setUserOnline(user.uid);
         if (import.meta.env.DEV) {
-          console.log('👤 Presence: User online', user.uid);
+          logger.debug('👤 Presence: User online', user.uid);
         }
       } catch (error) {
         console.error('Failed to set user online:', error);
@@ -81,7 +82,7 @@ export const usePresence = (): UsePresenceReturn => {
       try {
         await setInGameStatus(user.uid, inGame);
         if (import.meta.env.DEV) {
-          console.log('👤 Presence: inGame =', inGame);
+          logger.debug('👤 Presence: inGame =', inGame);
         }
       } catch (error) {
         console.error('Failed to update inGame status:', error);

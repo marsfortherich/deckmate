@@ -11,6 +11,7 @@ import {
 import { db } from './firebase';
 import { Card } from '../cards/types/card';
 import { CARD_LIBRARY } from '../cards/cardLibrary';
+import { logger } from '../utils/logger';
 
 // Serialisierbare Deck-Daten (nur IDs)
 interface DeckDocument {
@@ -98,7 +99,7 @@ export const saveDeck = async (
   await setDoc(newDeckRef, deckData);
 
   if (import.meta.env.DEV) {
-    console.log('💾 Deck saved:', { id: newDeckRef.id, name: deckName });
+    logger.debug('💾 Deck saved:', { id: newDeckRef.id, name: deckName });
   }
 
   return newDeckRef.id;
@@ -133,7 +134,7 @@ export const updateDeck = async (
   await setDoc(deckRef, updateData, { merge: true });
 
   if (import.meta.env.DEV) {
-    console.log('💾 Deck updated:', { id: deckId, name: deckName });
+    logger.debug('💾 Deck updated:', { id: deckId, name: deckName });
   }
 };
 
@@ -191,7 +192,7 @@ export const deleteDeck = async (
   await deleteDoc(deckRef);
 
   if (import.meta.env.DEV) {
-    console.log('🗑️ Deck deleted:', deckId);
+    logger.debug('🗑️ Deck deleted:', deckId);
   }
 };
 

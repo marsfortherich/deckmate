@@ -12,6 +12,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { logger } from '../utils/logger';
 
 export interface FriendData {
   uid: string;
@@ -42,7 +43,7 @@ export const sendFriendRequest = async (
   toDisplayName: string
 ): Promise<void> => {
   if (import.meta.env.DEV) {
-    console.log('👥 Sending friend request:', {
+    logger.debug('👥 Sending friend request:', {
       from: fromUid,
       fromName: fromDisplayName,
       to: toUid,
@@ -80,7 +81,7 @@ export const sendFriendRequest = async (
     });
     
     if (import.meta.env.DEV) {
-      console.log('✅ Friend request created successfully');
+      logger.debug('✅ Friend request created successfully');
     }
   } catch (error: any) {
     if (import.meta.env.DEV) {
@@ -96,7 +97,7 @@ export const sendFriendRequest = async (
  * Akzeptiert eine Freundschaftsanfrage
  */
 export const acceptFriendRequest = async (requestId: string): Promise<void> => {
-  console.log('🔍 DEBUG: Starting acceptFriendRequest for:', requestId);
+  logger.debug('🔍 DEBUG: Starting acceptFriendRequest for:', requestId);
   
   const requestRef = doc(db, 'friendRequests', requestId);
   const requestSnap = await getDoc(requestRef);
@@ -106,7 +107,7 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
   }
 
   const request = requestSnap.data() as Omit<FriendRequest, 'id'>;
-  console.log('🔍 DEBUG: Request data:', {
+  logger.debug('🔍 DEBUG: Request data:', {
     from: request.from,
     to: request.to,
     fromDisplayName: request.fromDisplayName,
@@ -130,7 +131,7 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
   const fromUserData = fromUserSnap.exists() ? fromUserSnap.data() : null;
   const toUserData = toUserSnap.exists() ? toUserSnap.data() : null;
 
-  console.log('🔍 DEBUG: Loaded user data:', {
+  logger.debug('🔍 DEBUG: Loaded user data:', {
     fromUser: fromUserData,
     toUser: toUserData
   });
@@ -151,33 +152,33 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
     addedAt: serverTimestamp(),
   };
 
-  console.log('🔍 DEBUG: Friend data to write:', {
+  logger.debug('🔍 DEBUG: Friend data to write:', {
     friendData1,
     friendData2
   });
 
-  console.log('🔍 DEBUG: Writing to users/' + request.from + '/friends/' + request.to);
+  logger.debug('🔍 DEBUG: Writing to users/' + request.from + '/friends/' + request.to);
   try {
     await setDoc(user1FriendRef, friendData1);
-    console.log('✅ DEBUG: Successfully wrote user1FriendRef');
+    logger.debug('✅ DEBUG: Successfully wrote user1FriendRef');
   } catch (error: any) {
     console.error('❌ DEBUG: Failed to write user1FriendRef:', error.message);
     throw error;
   }
 
-  console.log('🔍 DEBUG: Writing to users/' + request.to + '/friends/' + request.from);
+  logger.debug('🔍 DEBUG: Writing to users/' + request.to + '/friends/' + request.from);
   try {
     await setDoc(user2FriendRef, friendData2);
-    console.log('✅ DEBUG: Successfully wrote user2FriendRef');
+    logger.debug('✅ DEBUG: Successfully wrote user2FriendRef');
   } catch (error: any) {
     console.error('❌ DEBUG: Failed to write user2FriendRef:', error.message);
     throw error;
   }
 
   // Lösche die Anfrage
-  console.log('🔍 DEBUG: Deleting request:', requestId);
+  logger.debug('🔍 DEBUG: Deleting request:', requestId);
   await deleteDoc(requestRef);
-  console.log('✅ DEBUG: acceptFriendRequest completed successfully');
+  logger.debug('✅ DEBUG: acceptFriendRequest completed successfully');
 };
 
 /**
@@ -308,15 +309,15 @@ export const findUserByEmail = async (
   const q = query(usersRef, where('email', '==', email.toLowerCase()));
   
   if (import.meta.env.DEV) {
-    console.log('🔍 Searching for user with email:', email.toLowerCase());
+    logger.debug('🔍 Searching for user with email:', email.toLowerCase());
   }
   
   const snapshot = await getDocs(q);
 
   if (import.meta.env.DEV) {
-    console.log('🔍 Search results:', snapshot.size, 'users found');
+    logger.debug('🔍 Search results:', snapshot.size, 'users found');
     if (!snapshot.empty) {
-      console.log('🔍 Found user:', {
+      logger.debug('🔍 Found user:', {
         uid: snapshot.docs[0].id,
         data: snapshot.docs[0].data()
       });
@@ -344,15 +345,15 @@ export const findUserByUsername = async (
   const q = query(usersRef, where('username', '==', username.toLowerCase()));
   
   if (import.meta.env.DEV) {
-    console.log('🔍 Searching for user with username:', username.toLowerCase());
+    logger.debug('🔍 Searching for user with username:', username.toLowerCase());
   }
   
   const snapshot = await getDocs(q);
 
   if (import.meta.env.DEV) {
-    console.log('🔍 Search results:', snapshot.size, 'users found');
+    logger.debug('🔍 Search results:', snapshot.size, 'users found');
     if (!snapshot.empty) {
-      console.log('🔍 Found user:', {
+      logger.debug('🔍 Found user:', {
         uid: snapshot.docs[0].id,
         data: snapshot.docs[0].data()
       });

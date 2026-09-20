@@ -12,6 +12,7 @@ import {
   getOutgoingRequests,
   findUserByUsername,
 } from '../../services/friendService';
+import { logger } from '../../utils/logger';
 
 export interface UseFriendsReturn {
   friends: FriendData[];
@@ -119,7 +120,7 @@ export const useFriends = (): UseFriendsReturn => {
         setOutgoingRequests(requests);
 
         if (import.meta.env.DEV) {
-          console.log('👥 Friend request sent to:', username);
+          logger.debug('👥 Friend request sent to:', username);
         }
       } catch (err: any) {
         const errorMessage = err.message || 'Fehler beim Senden der Anfrage';
@@ -138,7 +139,7 @@ export const useFriends = (): UseFriendsReturn => {
         await acceptRequest(requestId);
 
         if (import.meta.env.DEV) {
-          console.log('👥 Friend request accepted:', requestId);
+          logger.debug('👥 Friend request accepted:', requestId);
         }
       } catch (err: any) {
         const errorMessage = err.message || 'Fehler beim Akzeptieren';
@@ -157,7 +158,7 @@ export const useFriends = (): UseFriendsReturn => {
         await rejectRequest(requestId);
 
         if (import.meta.env.DEV) {
-          console.log('👥 Friend request rejected:', requestId);
+          logger.debug('👥 Friend request rejected:', requestId);
         }
       } catch (err: any) {
         const errorMessage = err.message || 'Fehler beim Ablehnen';
@@ -180,7 +181,7 @@ export const useFriends = (): UseFriendsReturn => {
         await removeFriendFromList(user.uid, friendUid);
 
         if (import.meta.env.DEV) {
-          console.log('👥 Friend removed:', friendUid);
+          logger.debug('👥 Friend removed:', friendUid);
         }
       } catch (err: any) {
         const errorMessage = err.message || 'Fehler beim Entfernen';

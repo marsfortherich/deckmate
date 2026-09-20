@@ -24,6 +24,7 @@ import { Color, Position, Move, PieceType } from '../../core/types';
 import { Card } from '../../cards/types/card';
 import { useSharedGameState } from '../hooks/useSharedGameState';
 import { NO_PARAMS } from '../../cards/types/effect';
+import { logger } from '../../utils/logger';
 
 /**
  * Extract move positions from move card
@@ -61,7 +62,7 @@ export const OnlineMultiplayerGameView: React.FC = () => {
   useEffect(() => {
     if (!matchId || !user) return;
 
-    console.log('🎮 Subscribing to match:', matchId);
+    logger.debug('🎮 Subscribing to match:', matchId);
 
     const unsubscribe = subscribeToMatch(matchId, (matchData) => {
       if (!matchData) {
@@ -70,12 +71,12 @@ export const OnlineMultiplayerGameView: React.FC = () => {
         return;
       }
 
-      console.log('📨 Match update:', { matchId, status: matchData.status });
+      logger.debug('📨 Match update:', { matchId, status: matchData.status });
 
       // Determine player color
       const color = matchData.players[0] === user.uid ? 'white' : 'black';
       setPlayerColor(color);
-      console.log('🎨 Player color:', color);
+      logger.debug('🎨 Player color:', color);
 
       // Get decks
       if (matchData.playerDecks) {
@@ -86,14 +87,14 @@ export const OnlineMultiplayerGameView: React.FC = () => {
         const blackDeck = matchData.playerDecks[blackUid]?.cards || [];
 
         setPlayerDecks({ white: whiteDeck, black: blackDeck });
-        console.log('🃏 Player decks loaded');
+        logger.debug('🃏 Player decks loaded');
       }
 
       setLoading(false);
     });
 
     return () => {
-      console.log('🔌 Unsubscribing from match');
+      logger.debug('🔌 Unsubscribing from match');
       unsubscribe();
     };
   }, [matchId, user]);
