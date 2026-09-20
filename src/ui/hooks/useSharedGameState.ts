@@ -21,6 +21,7 @@ import {
   serializeGameState,
   deserializeGameState,
 } from '../../services/gameStateSerializer';
+import { logger } from '../../utils/logger';
 
 export interface UseSharedGameStateReturn {
   // State
@@ -103,20 +104,20 @@ export function useSharedGameState(
   // Initialize controller
   useEffect(() => {
     if (!whiteDeck || !blackDeck) {
-      console.log('⏳ Waiting for decks to initialize controller');
+      logger.debug('⏳ Waiting for decks to initialize controller');
       return;
     }
 
     const initController = async () => {
-      console.log('🎮 Initializing game controller', { matchId, player });
+      logger.debug('🎮 Initializing game controller', { matchId, player });
       try {
         // Try to load existing state from RTDB
         const onlineState = await getGameState(matchId);
         
         if (onlineState && onlineState.gameState) {
           // Create controller with existing state
-          console.log('📖 Loaded existing game state from RTDB');
-          console.log('🔍 Serialized state structure:', {
+          logger.debug('📖 Loaded existing game state from RTDB');
+          logger.debug('🔍 Serialized state structure:', {
             hasWhiteHand: !!onlineState.gameState.whiteHand,
             hasBlackHand: !!onlineState.gameState.blackHand,
             whiteHandKeys: onlineState.gameState.whiteHand ? Object.keys(onlineState.gameState.whiteHand) : [],
@@ -139,22 +140,22 @@ export function useSharedGameState(
             controller.setState(deserializedState);
             controllerRef.current = controller;
             setControllerReady(true);
-            console.log('✅ Controller initialized from existing state');
+            logger.debug('✅ Controller initialized from existing state');
           } catch (err) {
             console.error('❌ Failed to deserialize state:', err);
             console.error('📦 Problematic state:', JSON.stringify(onlineState.gameState, null, 2));
             // Fallback: create new controller and save it
-            console.log('🔄 Falling back to new controller');
+            logger.debug('🔄 Falling back to new controller');
             const initialState = controller.getState();
             const serializedState = serializeGameState(initialState);
             await initializeGameState(matchId, serializedState);
             controllerRef.current = controller;
             setControllerReady(true);
-            console.log('✅ Controller initialized with fallback');
+            logger.debug('✅ Controller initialized with fallback');
           }
         } else {
           // Create new controller and save initial state
-          console.log('🆕 Creating new game controller');
+          logger.debug('🆕 Creating new game controller');
           const controller = new EnhancedGameController(
             undefined,
             undefined,
@@ -168,8 +169,8 @@ export function useSharedGameState(
           const serializedState = serializeGameState(initialState);
           await initializeGameState(matchId, serializedState);
           setControllerReady(true);
-          console.log('💾 Saved initial state to RTDB');
-          console.log('✅ Controller initialized from scratch');
+          logger.debug('💾 Saved initial state to RTDB');
+          logger.debug('✅ Controller initialized from scratch');
         }
         
         setLoading(false);
@@ -186,16 +187,16 @@ export function useSharedGameState(
         setControllerReady(true);
         setLoading(false);
         refreshView();
-        console.log('✅ Controller initialized after error');
+        logger.debug('✅ Controller initialized after error');
       }
     };
 
     initController();
-  }, [matchId, whiteDeck, blackDeck, refreshView]);
+  }, [matchId, whiteDeck, blackDeck, refreshView, player]);
 
   // Subscribe to RTDB updates
   useEffect(() => {
-    console.log('🎯 Subscribe useEffect triggered', {
+    logger.debug('🎯 Subscribe useEffect triggered', {
       hasMatchId: !!matchId,
       controllerReady,
       hasWhiteDeck: !!whiteDeck,
@@ -203,17 +204,17 @@ export function useSharedGameState(
     });
     
     if (!matchId || !controllerReady) {
-      console.log('⚠️ Skipping subscribe setup - missing requirements', {
+      logger.debug('⚠️ Skipping subscribe setup - missing requirements', {
         matchId,
         controllerReady,
       });
       return;
     }
 
-    console.log('🔍 Setting up Firebase subscription:', matchId);
+    logger.debug('🔍 Setting up Firebase subscription:', matchId);
 
     const unsubscribe = subscribeToGameState(matchId, (onlineState) => {
-      console.log('🔔 Firebase callback triggered', {
+      logger.debug('🔔 Firebase callback triggered', {
         hasState: !!onlineState,
         hasController: !!controllerRef.current,
       });
@@ -222,12 +223,12 @@ export function useSharedGameState(
 
       // Skip if we're currently updating (prevents race conditions during our own update)
       if (isUpdatingRef.current) {
-        console.log('⏭️ Skipping update - currently updating');
+        logger.debug('⏭️ Skipping update - currently updating');
         return;
       }
 
       const timeSinceLastUpdate = Date.now() - lastUpdateTimeRef.current;
-      console.log('📨 Received game state update from RTDB', {
+      logger.debug('📨 Received game state update from RTDB', {
         updatedAt: onlineState.updatedAt,
         lastUpdate: lastUpdateTimeRef.current,
         timeDiff: timeSinceLastUpdate,
@@ -237,14 +238,14 @@ export function useSharedGameState(
       // Only skip if we made an update recently (within last 200ms)
       if (timeSinceLastUpdate < 200 && lastUpdateTimeRef.current > 0) {
         const ageOfUpdate = Date.now() - onlineState.updatedAt;
-        console.log('⏭️ Checking if echo update', {
+        logger.debug('⏭️ Checking if echo update', {
           timeSinceOurUpdate: timeSinceLastUpdate,
           ageOfIncomingUpdate: ageOfUpdate,
         });
         
         // Only skip if the update timestamp is close to our last update
         if (Math.abs(onlineState.updatedAt - lastUpdateTimeRef.current) < 100) {
-          console.log('⏭️ Confirmed echo - skipping');
+          logger.debug('⏭️ Confirmed echo - skipping');
           return;
         }
       }
@@ -255,7 +256,7 @@ export function useSharedGameState(
         return;
       }
       
-      console.log('🔍 Validating state structure', {
+      logger.debug('🔍 Validating state structure', {
         hasWhiteHand: !!onlineState.gameState.whiteHand,
         hasBlackHand: !!onlineState.gameState.blackHand,
         whiteHandKeys: onlineState.gameState.whiteHand ? Object.keys(onlineState.gameState.whiteHand) : null,
@@ -281,7 +282,7 @@ export function useSharedGameState(
         );
         controllerRef.current.setState(deserializedState);
         refreshView();
-        console.log('✅ Applied state update from RTDB');
+        logger.debug('✅ Applied state update from RTDB');
       } catch (err) {
         console.error('❌ Failed to deserialize state update:', err);
         console.warn('⚠️ Skipping corrupted state update');
@@ -289,7 +290,7 @@ export function useSharedGameState(
     });
 
     return () => {
-      console.log('🔌 Unsubscribing from game state');
+      logger.debug('🔌 Unsubscribing from game state');
       unsubscribe();
     };
   }, [matchId, controllerReady, refreshView, whiteDeck, blackDeck]);
@@ -314,7 +315,7 @@ export function useSharedGameState(
         timestamp: Date.now(),
       });
 
-      console.log('✅ Synced state to RTDB:', action);
+      logger.debug('✅ Synced state to RTDB:', action);
     } catch (err) {
       console.error('❌ Failed to sync state:', err);
     } finally {

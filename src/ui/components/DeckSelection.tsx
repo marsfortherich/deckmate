@@ -7,6 +7,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { SavedDeck, getUserDecks } from '../../services/deckService';
 import { selectDeck, subscribeToMatch } from '../../services/matchService';
+import { logger } from '../../utils/logger';
+import { getErrorMessage } from '../../utils/errors';
 
 export const DeckSelection: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
@@ -37,15 +39,15 @@ export const DeckSelection: React.FC = () => {
   useEffect(() => {
     if (!matchId) return;
 
-    console.log('🔍 Subscribing to match:', matchId);
+    logger.debug('🔍 Subscribing to match:', matchId);
 
     const unsubscribe = subscribeToMatch(matchId, (match) => {
       if (!match) {
-        console.log('⚠️ Match not found or deleted');
+        logger.debug('⚠️ Match not found or deleted');
         return;
       }
       
-      console.log('📨 Match update received:', {
+      logger.debug('📨 Match update received:', {
         matchId,
         status: match.status,
         playerDecks: match.playerDecks ? Object.keys(match.playerDecks).length : 0,
@@ -53,13 +55,13 @@ export const DeckSelection: React.FC = () => {
       
       // When match status is 'pending', both players selected decks -> start game
       if (match.status === 'pending') {
-        console.log('✅ Both players ready! Navigating to game...');
+        logger.debug('✅ Both players ready! Navigating to game...');
         navigate(`/match/${matchId}/game`);
       }
     });
 
     return () => {
-      console.log('🔌 Unsubscribing from match');
+      logger.debug('🔌 Unsubscribing from match');
       unsubscribe();
     };
   }, [matchId, navigate]);
@@ -67,7 +69,7 @@ export const DeckSelection: React.FC = () => {
   const handleSelectDeck = async (deck: SavedDeck) => {
     if (!user || !matchId) return;
 
-    console.log('🎯 Selecting deck:', {
+    logger.debug('🎯 Selecting deck:', {
       deckId: deck.id,
       deckName: deck.name,
       matchId,
@@ -77,12 +79,12 @@ export const DeckSelection: React.FC = () => {
     setSelecting(true);
     try {
       await selectDeck(matchId, user.uid, deck.id, deck.name, deck.cards);
-      console.log('✅ Deck selected successfully');
+      logger.debug('✅ Deck selected successfully');
       // selectDeck automatically updates status to 'pending' when both ready
       // The useEffect above will navigate when that happens
-    } catch (err: any) {
+    } catch (err) {
       console.error('❌ Error selecting deck:', err);
-      alert(`Fehler: ${err.message}`);
+      alert(`Fehler: ${getErrorMessage(err)}`);
     } finally {
       setSelecting(false);
     }

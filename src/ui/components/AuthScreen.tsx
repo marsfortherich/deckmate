@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../auth/AuthProvider';
 import { isUsernameTaken } from '../../services/userService';
+import { getErrorMessage } from '../../utils/errors';
 
 type AuthMode = 'login' | 'register';
 
@@ -49,8 +50,8 @@ export const AuthScreen: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }) 
         await register(email, password, username, displayName);
       }
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || 'Ein Fehler ist aufgetreten');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Ein Fehler ist aufgetreten'));
     } finally {
       setIsLoading(false);
     }

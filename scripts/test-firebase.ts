@@ -79,11 +79,12 @@ async function testFirebaseConnection() {
     console.log('\n✅ Alle Tests erfolgreich!');
     console.log('\nFirebase ist korrekt konfiguriert und funktioniert.');
     
-  } catch (error: any) {
-    console.error('\n❌ Fehler beim Test:', error.message);
-    
-    if (error.code) {
-      console.error('   Error Code:', error.code);
+  } catch (error) {
+    const err = error as { message?: string; code?: string };
+    console.error('\n❌ Fehler beim Test:', err.message);
+
+    if (err.code) {
+      console.error('   Error Code:', err.code);
     }
     
     console.log('\n💡 Mögliche Lösungen:');

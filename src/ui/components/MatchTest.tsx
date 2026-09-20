@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMatch } from '../hooks/useMatch';
 import { useAuth } from '../auth/AuthProvider';
+import { getErrorMessage } from '../../utils/errors';
 
 export const MatchTest: React.FC = () => {
   const { user } = useAuth();
@@ -31,8 +32,8 @@ export const MatchTest: React.FC = () => {
       const initialGameState = JSON.parse(gameStateInput);
       const matchId = await createMatch(opponentUid, initialGameState);
       alert(`Match erstellt! ID: ${matchId}`);
-    } catch (err: any) {
-      alert(`Fehler: ${err.message}`);
+    } catch (err) {
+      alert(`Fehler: ${getErrorMessage(err)}`);
     }
   };
 
@@ -44,8 +45,8 @@ export const MatchTest: React.FC = () => {
 
     try {
       await loadMatch(matchIdInput);
-    } catch (err: any) {
-      alert(`Fehler: ${err.message}`);
+    } catch (err) {
+      alert(`Fehler: ${getErrorMessage(err)}`);
     }
   };
 
@@ -53,8 +54,8 @@ export const MatchTest: React.FC = () => {
     try {
       await acceptMatch();
       alert('Match akzeptiert!');
-    } catch (err: any) {
-      alert(`Fehler: ${err.message}`);
+    } catch (err) {
+      alert(`Fehler: ${getErrorMessage(err)}`);
     }
   };
 
@@ -63,8 +64,8 @@ export const MatchTest: React.FC = () => {
       const newGameState = JSON.parse(gameStateInput);
       await updateGameState(newGameState);
       alert('Game State aktualisiert!');
-    } catch (err: any) {
-      alert(`Fehler: ${err.message}`);
+    } catch (err) {
+      alert(`Fehler: ${getErrorMessage(err)}`);
     }
   };
 
@@ -72,8 +73,8 @@ export const MatchTest: React.FC = () => {
     try {
       await finishMatch();
       alert('Match beendet!');
-    } catch (err: any) {
-      alert(`Fehler: ${err.message}`);
+    } catch (err) {
+      alert(`Fehler: ${getErrorMessage(err)}`);
     }
   };
 

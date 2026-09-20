@@ -18,6 +18,8 @@ import { db, functions } from './firebase';
 import { Card } from '../cards/types/card';
 import { CARD_LIBRARY } from '../cards/cardLibrary';
 import { Move } from '../core/types';
+import { logger } from '../utils/logger';
+import { getErrorMessage, getErrorCode } from '../utils/errors';
 
 export type MatchMode = 'unranked';
 export type MatchStatus = 
@@ -173,7 +175,7 @@ export const createMatch = async (
   await setDoc(newMatchRef, matchData);
 
   if (import.meta.env.DEV) {
-    console.log('🎮 Match created:', {
+    logger.debug('🎮 Match created:', {
       matchId: newMatchRef.id,
       players: [player1Uid, player2Uid],
     });
@@ -205,7 +207,7 @@ export const acceptMatch = async (matchId: string): Promise<void> => {
   });
 
   if (import.meta.env.DEV) {
-    console.log('✅ Match accepted:', matchId);
+    logger.debug('✅ Match accepted:', matchId);
   }
 };
 
@@ -235,7 +237,7 @@ export const updateGameState = async (
   });
 
   if (import.meta.env.DEV) {
-    console.log('🎮 Game state updated:', matchId);
+    logger.debug('🎮 Game state updated:', matchId);
   }
 };
 
@@ -251,7 +253,7 @@ export const finishMatch = async (matchId: string): Promise<void> => {
   });
 
   if (import.meta.env.DEV) {
-    console.log('🏁 Match finished:', matchId);
+    logger.debug('🏁 Match finished:', matchId);
   }
 };
 
@@ -329,7 +331,7 @@ export const createChallenge = async (
   await setDoc(newMatchRef, matchData);
 
   if (import.meta.env.DEV) {
-    console.log('⚔️ Challenge created:', {
+    logger.debug('⚔️ Challenge created:', {
       matchId: newMatchRef.id,
       challenger: challengerName,
       challenged: challengedName,
@@ -362,7 +364,7 @@ export const acceptChallenge = async (matchId: string): Promise<void> => {
   });
 
   if (import.meta.env.DEV) {
-    console.log('✅ Challenge accepted:', matchId);
+    logger.debug('✅ Challenge accepted:', matchId);
   }
 };
 
@@ -374,7 +376,7 @@ export const declineChallenge = async (matchId: string): Promise<void> => {
   await deleteDoc(matchRef);
 
   if (import.meta.env.DEV) {
-    console.log('❌ Challenge declined:', matchId);
+    logger.debug('❌ Challenge declined:', matchId);
   }
 };
 
@@ -427,7 +429,7 @@ export const selectDeck = async (
   });
 
   if (import.meta.env.DEV) {
-    console.log('🃏 Deck selected:', {
+    logger.debug('🃏 Deck selected:', {
       matchId,
       player: playerUid,
       deckName,
@@ -485,14 +487,14 @@ export const subscribeIncomingChallenges = (
   );
 
   if (import.meta.env.DEV) {
-    console.log('🔍 Subscribing to challenges for user:', userUid);
+    logger.debug('🔍 Subscribing to challenges for user:', userUid);
   }
 
   return onSnapshot(
     q,
     (snapshot) => {
       if (import.meta.env.DEV) {
-        console.log('📨 Incoming challenges snapshot:', {
+        logger.debug('📨 Incoming challenges snapshot:', {
           size: snapshot.size,
           docs: snapshot.docs.length,
         });
@@ -500,13 +502,13 @@ export const subscribeIncomingChallenges = (
       
       const challenges = snapshot.docs.map((doc) => {
         if (import.meta.env.DEV) {
-          console.log('Challenge data:', doc.id, doc.data());
+          logger.debug('Challenge data:', doc.id, doc.data());
         }
         return reconstructMatch(doc.id, doc.data() as MatchDocument);
       });
       
       if (import.meta.env.DEV) {
-        console.log('📬 Calling callback with challenges:', challenges.length);
+        logger.debug('📬 Calling callback with challenges:', challenges.length);
       }
       
       callback(challenges);
@@ -514,8 +516,8 @@ export const subscribeIncomingChallenges = (
     (error) => {
       console.error('❌ Error subscribing to challenges:', error);
       console.error('Error details:', {
-        code: error.code,
-        message: error.message,
+        code: getErrorCode(error),
+        message: getErrorMessage(error),
       });
       // Call with empty array on error
       callback([]);
@@ -539,14 +541,14 @@ export const subscribeAcceptedChallenges = (
   );
 
   if (import.meta.env.DEV) {
-    console.log('🔍 Subscribing to accepted challenges for user:', userUid);
+    logger.debug('🔍 Subscribing to accepted challenges for user:', userUid);
   }
 
   return onSnapshot(
     q,
     (snapshot) => {
       if (import.meta.env.DEV) {
-        console.log('✅ Accepted challenges snapshot:', {
+        logger.debug('✅ Accepted challenges snapshot:', {
           size: snapshot.size,
           docs: snapshot.docs.length,
         });
@@ -554,13 +556,13 @@ export const subscribeAcceptedChallenges = (
       
       const matches = snapshot.docs.map((doc) => {
         if (import.meta.env.DEV) {
-          console.log('Accepted challenge data:', doc.id, doc.data());
+          logger.debug('Accepted challenge data:', doc.id, doc.data());
         }
         return reconstructMatch(doc.id, doc.data() as MatchDocument);
       });
       
       if (import.meta.env.DEV) {
-        console.log('📬 Calling callback with accepted challenges:', matches.length);
+        logger.debug('📬 Calling callback with accepted challenges:', matches.length);
       }
       
       callback(matches);
@@ -568,8 +570,8 @@ export const subscribeAcceptedChallenges = (
     (error) => {
       console.error('❌ Error subscribing to accepted challenges:', error);
       console.error('Error details:', {
-        code: error.code,
-        message: error.message,
+        code: getErrorCode(error),
+        message: getErrorMessage(error),
       });
       callback([]);
     }
@@ -583,18 +585,18 @@ export const initializeMatchGameState = async (matchId: string): Promise<void> =
   const initializeMatch = httpsCallable(functions, 'initializeMatch');
   
   if (import.meta.env.DEV) {
-    console.log('🎮 Initializing match game state:', matchId);
+    logger.debug('🎮 Initializing match game state:', matchId);
   }
 
   try {
     const result = await initializeMatch({ matchId });
     
     if (import.meta.env.DEV) {
-      console.log('✅ Match initialized:', result.data);
+      logger.debug('✅ Match initialized:', result.data);
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('❌ Error initializing match:', err);
-    throw new Error(err.message || 'Failed to initialize match');
+    throw new Error(getErrorMessage(err, 'Failed to initialize match'));
   }
 };
 
@@ -609,18 +611,18 @@ export const makeOnlineMove = async (
   const makeMoveFunc = httpsCallable(functions, 'makeMove');
   
   if (import.meta.env.DEV) {
-    console.log('♟️ Making online move:', { matchId, move });
+    logger.debug('♟️ Making online move:', { matchId, move });
   }
 
   try {
     const result = await makeMoveFunc({ matchId, move });
     
     if (import.meta.env.DEV) {
-      console.log('✅ Move completed:', result.data);
+      logger.debug('✅ Move completed:', result.data);
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('❌ Error making move:', err);
-    throw new Error(err.message || 'Failed to make move');
+    throw new Error(getErrorMessage(err, 'Failed to make move'));
   }
 };
 
@@ -636,17 +638,17 @@ export const playOnlineCard = async (
   const playCardFunc = httpsCallable(functions, 'playCard');
   
   if (import.meta.env.DEV) {
-    console.log('🃏 Playing online card:', { matchId, cardInstanceId, params });
+    logger.debug('🃏 Playing online card:', { matchId, cardInstanceId, params });
   }
 
   try {
     const result = await playCardFunc({ matchId, cardInstanceId, params });
     
     if (import.meta.env.DEV) {
-      console.log('✅ Card played:', result.data);
+      logger.debug('✅ Card played:', result.data);
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('❌ Error playing card:', err);
-    throw new Error(err.message || 'Failed to play card');
+    throw new Error(getErrorMessage(err, 'Failed to play card'));
   }
 };

@@ -16,6 +16,7 @@ import { useUserPresence } from '../hooks/usePresence';
 import { useAuth } from '../auth/AuthProvider';
 import { createChallenge } from '../../services/matchService';
 import { getUserDocument } from '../../services/userService';
+import { getErrorMessage } from '../../utils/errors';
 
 interface FriendItemProps {
   uid: string;
@@ -174,8 +175,8 @@ export const FriendsList: React.FC = () => {
       setUsername('');
       setSendSuccess(true);
       setTimeout(() => setSendSuccess(false), 3000);
-    } catch (err: any) {
-      setSendError(err.message);
+    } catch (err) {
+      setSendError(getErrorMessage(err));
     }
   };
 
@@ -202,9 +203,9 @@ export const FriendsList: React.FC = () => {
 
       setChallengeSuccess(`Herausforderung an ${friendDisplayName} gesendet!`);
       setTimeout(() => setChallengeSuccess(null), 3000);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to create challenge:', err);
-      setChallengeError(err.message || 'Fehler beim Senden der Herausforderung');
+      setChallengeError(getErrorMessage(err, 'Fehler beim Senden der Herausforderung'));
       setTimeout(() => setChallengeError(null), 3000);
     }
   };
@@ -212,7 +213,7 @@ export const FriendsList: React.FC = () => {
   const handleAcceptRequest = async (requestId: string) => {
     try {
       await acceptFriendRequest(requestId);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to accept request:', err);
     }
   };
@@ -220,7 +221,7 @@ export const FriendsList: React.FC = () => {
   const handleRejectRequest = async (requestId: string) => {
     try {
       await rejectFriendRequest(requestId);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to reject request:', err);
     }
   };
@@ -228,7 +229,7 @@ export const FriendsList: React.FC = () => {
   const handleRemoveFriend = async (friendUid: string) => {
     try {
       await removeFriend(friendUid);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to remove friend:', err);
     }
   };

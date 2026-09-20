@@ -3,6 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 import { getFunctions } from 'firebase/functions';
+import { logger } from '../utils/logger';
 
 interface FirebaseConfig {
   apiKey: string;
@@ -28,7 +29,7 @@ const firebaseConfig: FirebaseConfig = {
 
 // Debug: Log config laden (nur in dev)
 if (import.meta.env.DEV) {
-  console.log('🔥 Firebase Config loaded:', {
+  logger.debug('🔥 Firebase Config loaded:', {
     hasApiKey: !!firebaseConfig.apiKey,
     hasAuthDomain: !!firebaseConfig.authDomain,
     projectId: firebaseConfig.projectId,

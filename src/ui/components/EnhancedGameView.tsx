@@ -15,6 +15,7 @@ import { PawnPromotionDialog } from './PawnPromotionDialog.js';
 import { Color, Position, Move, PieceType } from '../../core/index.js';
 import { NO_PARAMS } from '../../cards/types/effect.js';
 import { Card } from '../../cards/types/card.js';
+import { logger } from '../../utils/logger';
 
 interface EnhancedGameViewProps {
   player: Color;
@@ -721,7 +722,7 @@ export const EnhancedGameView: React.FC<EnhancedGameViewProps> = ({
           }}
           onBackToMenu={() => {
             // Navigate back to main menu (would need routing setup)
-            console.log('Back to menu - routing not implemented yet');
+            logger.debug('Back to menu - routing not implemented yet');
           }}
         />
       )}

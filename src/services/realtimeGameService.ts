@@ -7,6 +7,7 @@
 import { ref, set, update, onValue, off, get } from 'firebase/database';
 import { rtdb } from './firebase';
 import { SerializedGameState } from './gameStateSerializer';
+import { logger } from '../utils/logger';
 
 export interface GameHistory {
   timestamp: number;
@@ -46,13 +47,7 @@ export const initializeGameState = async (
   
   await set(gameRef, parsedData);
 
-  if (import.meta.env.DEV) {
-    console.log('🎮 Game state initialized in Realtime DB:', matchId);
-    console.log('🔍 Board structure being saved:', {
-      isArray: Array.isArray(parsedData.gameState.gameState.boardState.board),
-      length: parsedData.gameState.gameState.boardState.board.length,
-    });
-  }
+  logger.debug('🎮 Game state initialized in Realtime DB:', matchId);
 };
 
 /**
@@ -65,12 +60,10 @@ export const updateGameState = async (
 ): Promise<void> => {
   const gameRef = ref(rtdb, `games/${matchId}`);
   
-  console.log('📤 Updating game state in RTDB', {
+  logger.debug('📤 Updating game state in RTDB', {
     matchId,
     action: action.action,
     player: action.player,
-    hasWhiteHand: !!newGameState.whiteHand,
-    hasBlackHand: !!newGameState.blackHand,
   });
   
   // Get current history
@@ -88,16 +81,9 @@ export const updateGameState = async (
   const jsonString = JSON.stringify(updates);
   const parsedData = JSON.parse(jsonString);
   
-  console.log('📤 About to save to Firebase:', {
-    hasWhiteHand: !!parsedData.gameState.whiteHand,
-    hasBlackHand: !!parsedData.gameState.blackHand,
-    whiteHandKeys: parsedData.gameState.whiteHand ? Object.keys(parsedData.gameState.whiteHand) : null,
-    blackHandKeys: parsedData.gameState.blackHand ? Object.keys(parsedData.gameState.blackHand) : null,
-  });
-
   await update(gameRef, parsedData);
 
-  console.log('✅ Game state update complete', {
+  logger.debug('✅ Game state update complete', {
     updatedAt: parsedData.updatedAt,
     historyLength: parsedData.history.length,
   });
@@ -112,11 +98,11 @@ export const subscribeToGameState = (
 ): (() => void) => {
   const gameRef = ref(rtdb, `games/${matchId}`);
 
-  console.log('🔗 Setting up Firebase listener for', matchId);
+  logger.debug('🔗 Setting up Firebase listener for', matchId);
 
   const handleUpdate = (snapshot: any) => {
     const data = snapshot.val() as OnlineGameState | null;
-    console.log('🔥 Firebase onValue triggered', {
+    logger.debug('🔥 Firebase onValue triggered', {
       hasData: !!data,
       updatedAt: data?.updatedAt,
     });
@@ -125,11 +111,11 @@ export const subscribeToGameState = (
 
   onValue(gameRef, handleUpdate);
 
-  console.log('✅ Firebase listener active');
+  logger.debug('✅ Firebase listener active');
 
   // Return unsubscribe function
   return () => {
-    console.log('🔌 Removing Firebase listener');
+    logger.debug('🔌 Removing Firebase listener');
     off(gameRef, 'value', handleUpdate);
   };
 };
@@ -159,6 +145,6 @@ export const logAction = async (
   await set(gameRef, [...currentHistory, { ...action, timestamp: Date.now() }]);
 
   if (import.meta.env.DEV) {
-    console.log('📝 Action logged:', { matchId, action: action.action });
+    logger.debug('📝 Action logged:', { matchId, action: action.action });
   }
 };

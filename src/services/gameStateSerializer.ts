@@ -7,9 +7,10 @@
 
 import { EnhancedGameState } from '../cards/enhancedGameController';
 import { Card } from '../cards/types/card';
-import { GameState, Position, PieceType } from '../core/types';
+import { GameState, Position, PieceType, Color, Board } from '../core/types';
 import { PlayerHand } from '../cards/moveCards/handManagerV2';
 import { createMoveCard } from '../cards/moveCards/moveCardGenerator';
+import { logger } from '../utils/logger';
 
 /**
  * Serializable version of EnhancedGameState
@@ -35,33 +36,33 @@ export interface SerializedGameState {
     usedCardIds: string[];
   };
   pendingSpecialCardDecision: {
-    player: string;
+    player: Color;
     cardId: string;
   } | null;
   whiteDrawModifier: number;
   blackDrawModifier: number;
-  skipNextTurn: string | null;
-  skipTurnAfterNext: string | null;
-  freeMoveEnabled: string | null;
+  skipNextTurn: Color | null;
+  skipTurnAfterNext: Color | null;
+  freeMoveEnabled: Color | null;
   whiteFocusedPieceType: string | null;
   blackFocusedPieceType: string | null;
   pendingPieceTypeChoice: {
-    player: string;
+    player: Color;
     cardId: string;
   } | null;
   pendingCardSelection: {
-    player: string;
+    player: Color;
     action: 'recover' | 'activate';
     maxCount: number;
     triggeringCardId: string;
   } | null;
   pendingBoardAction: {
-    player: string;
+    player: Color;
     action: 'swapPieces' | 'placeTrap' | 'convertPawn';
     cardId: string;
   } | null;
   playHistory: {
-    player: string;
+    player: Color;
     cardId: string;
     turnNumber: number;
     isMoveCard: boolean;
@@ -139,26 +140,26 @@ function algebraicToPosition(algebraic: string): { row: number; col: number } {
  * Clean object by removing undefined values (Firebase doesn't allow undefined)
  * Recursively processes nested objects and arrays
  */
-function cleanUndefined(obj: any): any {
-  if (obj === null || obj === undefined) {
-    return null;
+function cleanUndefined<T>(value: T): T {
+  if (value === null || value === undefined) {
+    return null as T;
   }
-  
-  if (Array.isArray(obj)) {
-    return obj.map(cleanUndefined);
+
+  if (Array.isArray(value)) {
+    return value.map(cleanUndefined) as T;
   }
-  
-  if (typeof obj === 'object') {
-    const cleaned: any = {};
-    for (const key in obj) {
-      if (obj[key] !== undefined) {
-        cleaned[key] = cleanUndefined(obj[key]);
+
+  if (typeof value === 'object') {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      if (entry !== undefined) {
+        cleaned[key] = cleanUndefined(entry);
       }
     }
-    return cleaned;
+    return cleaned as T;
   }
-  
-  return obj;
+
+  return value;
 }
 
 /**
@@ -167,7 +168,7 @@ function cleanUndefined(obj: any): any {
 export function serializeGameState(
   state: EnhancedGameState
 ): SerializedGameState {
-  console.log('🔍 Serializing state - move cards:', {
+  logger.debug('🔍 Serializing state - move cards:', {
     whiteMoveCards: state.whiteHand.moveCards.length,
     blackMoveCards: state.blackHand.moveCards.length,
   });
@@ -213,41 +214,17 @@ export function serializeGameState(
     })),
   };
   
-  console.log('🔍 Serialized move cards:', {
-    whiteSerializedCount: serialized.whiteHand.moveCards.length,
-    blackSerializedCount: serialized.blackHand.moveCards.length,
-    whiteSample: serialized.whiteHand.moveCards[0],
-  });
-  
-  // Debug: Check board structure before cleaning
-  console.log('🔍 Board before cleanUndefined:', {
-    isArray: Array.isArray(serialized.gameState.boardState.board),
-    length: serialized.gameState.boardState.board.length,
-    firstRow: serialized.gameState.boardState.board[0],
-  });
-  
   // Clean all undefined values (Firebase doesn't allow undefined)
   const cleaned = cleanUndefined(serialized) as SerializedGameState;
-  
-  // Debug: Log hand structure after cleaning
-  console.log('🔍 Hands after cleanUndefined:', {
-    hasWhiteHand: !!cleaned.whiteHand,
-    hasBlackHand: !!cleaned.blackHand,
-    whiteHandKeys: cleaned.whiteHand ? Object.keys(cleaned.whiteHand) : null,
-    blackHandKeys: cleaned.blackHand ? Object.keys(cleaned.blackHand) : null,
-    whiteMoveCards: cleaned.whiteHand?.moveCards?.length ?? 'missing',
-    blackMoveCards: cleaned.blackHand?.moveCards?.length ?? 'missing',
-  });
-  
-  // Debug: Check board structure after cleaning
-  console.log('🔍 Board after cleanUndefined:', {
-    isArray: Array.isArray(cleaned.gameState.boardState.board),
-    length: cleaned.gameState.boardState.board?.length,
-    keys: typeof cleaned.gameState.boardState.board === 'object' 
-      ? Object.keys(cleaned.gameState.boardState.board) 
-      : 'N/A',
-  });
-  
+
+  // `cleanUndefined` walks the whole tree, and a board that comes back as an
+  // object instead of an array is the failure mode worth catching here.
+  if (!Array.isArray(cleaned.gameState.boardState.board)) {
+    logger.error('Serialization corrupted the board: expected an array', {
+      received: typeof cleaned.gameState.boardState.board,
+    });
+  }
+
   return cleaned;
 }
 
@@ -256,15 +233,15 @@ export function serializeGameState(
  */
 function deserializeMoveCard(
   serialized: SerializedMoveCard,
-  board: any,
-  color: 'white' | 'black'
+  board: Board,
+  color: Color
 ): Card | null {
   const from: Position = serialized.from;
   const to: Position = serialized.to;
   
   // Check what piece is at the from position
   const pieceAtFrom = board[from.row]?.[from.col];
-  console.log('🔍 Deserializing move card:', {
+  logger.debug('🔍 Deserializing move card:', {
     id: serialized.id,
     from: serialized.from,
     to: serialized.to,
@@ -307,7 +284,7 @@ export function deserializeGameState(
   blackDeck: readonly Card[]
 ): EnhancedGameState {
   // Debug: Check board structure on deserialization
-  console.log('🔍 Deserializing - board structure:', {
+  logger.debug('🔍 Deserializing - board structure:', {
     isArray: Array.isArray(serialized.gameState?.boardState?.board),
     type: typeof serialized.gameState?.boardState?.board,
     length: serialized.gameState?.boardState?.board?.length,
@@ -319,7 +296,7 @@ export function deserializeGameState(
   // Log what Firebase actually stored at each index
   if (serialized.gameState?.boardState?.board) {
     const board = serialized.gameState.boardState.board;
-    console.log('🔍 Raw board data from Firebase:', {
+    logger.debug('🔍 Raw board data from Firebase:', {
       row0: board[0]?.[0], // Should be white rook
       row1: board[1]?.[0], // Should be white pawn
       row6: board[6]?.[0], // Should be black pawn
@@ -337,7 +314,7 @@ export function deserializeGameState(
     // Check if this is a sparse array (Firebase removed null rows)
     const isObject = !Array.isArray(boardData);
     const keys = Object.keys(boardData);
-    console.log('🔍 Board reconstruction:', {
+    logger.debug('🔍 Board reconstruction:', {
       isObject,
       keys,
       isSparse: keys.length < 8,
@@ -389,7 +366,7 @@ export function deserializeGameState(
       // Ensure moveHistory array exists
       moveHistory: serialized.gameState.moveHistory || [],
     };
-    console.log('✅ Fixed board structure - always 8x8:', {
+    logger.debug('✅ Fixed board structure - always 8x8:', {
       isArray: Array.isArray(boardArray),
       length: boardArray.length,
       rowLengths: boardArray.map(row => row?.length),
@@ -487,7 +464,7 @@ export function deserializeGameState(
     .map(mc => deserializeMoveCard(mc, gameState.boardState.board, 'black'))
     .filter((c): c is Card => c !== null);
 
-  console.log('🔍 Deserialized move cards:', {
+  logger.debug('🔍 Deserialized move cards:', {
     whiteCount: whiteMoveCards.length,
     blackCount: blackMoveCards.length,
     whiteSample: whiteMoveCards[0]?.id,
@@ -516,27 +493,27 @@ export function deserializeGameState(
       used: blackDeckData.usedCardIds.map((id: string) => blackLookup.get(id)!).filter((c: Card | undefined) => c !== undefined),
     },
     pendingSpecialCardDecision: serialized.pendingSpecialCardDecision ? {
-      player: serialized.pendingSpecialCardDecision.player as any,
+      player: serialized.pendingSpecialCardDecision.player,
       card: findCard(serialized.pendingSpecialCardDecision.cardId),
     } : null,
     whiteDrawModifier: serialized.whiteDrawModifier || 0,
     blackDrawModifier: serialized.blackDrawModifier || 0,
-    skipNextTurn: serialized.skipNextTurn as any,
-    skipTurnAfterNext: serialized.skipTurnAfterNext as any,
-    freeMoveEnabled: serialized.freeMoveEnabled as any,
+    skipNextTurn: serialized.skipNextTurn,
+    skipTurnAfterNext: serialized.skipTurnAfterNext,
+    freeMoveEnabled: serialized.freeMoveEnabled,
     whiteFocusedPieceType: serialized.whiteFocusedPieceType || null,
     blackFocusedPieceType: serialized.blackFocusedPieceType || null,
-    pendingPieceTypeChoice: serialized.pendingPieceTypeChoice as any,
+    pendingPieceTypeChoice: serialized.pendingPieceTypeChoice,
     pendingCardSelection: serialized.pendingCardSelection ? {
       ...serialized.pendingCardSelection,
-      player: serialized.pendingCardSelection.player as any,
+      player: serialized.pendingCardSelection.player,
     } : null,
-    pendingBoardAction: serialized.pendingBoardAction as any,
+    pendingBoardAction: serialized.pendingBoardAction,
     playHistory: (serialized.playHistory || []).map(h => {
       // Move cards aren't in the deck - create a minimal Card from the ID
       if (h.isMoveCard) {
         return {
-          player: h.player as any,
+          player: h.player,
           card: {
             id: h.cardId,
             name: h.cardId.replace('move-', '').toUpperCase(),
@@ -558,7 +535,7 @@ export function deserializeGameState(
       }
       // Special cards can be found in the deck
       return {
-        player: h.player as any,
+        player: h.player,
         card: findCard(h.cardId),
         turnNumber: h.turnNumber,
         isMoveCard: h.isMoveCard,

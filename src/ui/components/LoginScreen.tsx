@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../auth/AuthProvider';
+import { getErrorMessage } from '../../utils/errors';
 
 export const LoginScreen: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }) => {
   const { login, user, loading } = useAuth();
@@ -20,8 +21,8 @@ export const LoginScreen: React.FC<{ onSuccess?: () => void }> = ({ onSuccess })
     try {
       await login(email, password);
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || 'Login fehlgeschlagen');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Login fehlgeschlagen'));
     } finally {
       setIsLoading(false);
     }

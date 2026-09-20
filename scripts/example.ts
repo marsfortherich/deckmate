@@ -17,7 +17,7 @@ import {
   type GameState,
   type Position,
   type Move,
-} from './core/index.js';
+} from '../src/core/index.js';
 
 // ===== 1. Neues Spiel starten =====
 console.log('=== Neues Schachspiel ===\n');

@@ -22,6 +22,7 @@ import { Color } from '../../core/index';
 import { Card } from '../../cards/types/card';
 import { CARD_LIBRARY } from '../../cards/cardLibrary';
 import { subscribeIncomingChallenges, subscribeAcceptedChallenges, acceptChallenge, declineChallenge } from '../../services/matchService';
+import { logger } from '../../utils/logger';
 
 // Wrapper component for editing a deck
 const DeckBuilderEdit: React.FC = () => {
@@ -59,19 +60,19 @@ export const GameRouter: React.FC = () => {
   // Subscribe to incoming challenges
   useEffect(() => {
     if (!user) {
-      console.log('👤 No user, skipping challenge subscription');
+      logger.debug('👤 No user, skipping challenge subscription');
       return;
     }
 
-    console.log('🎯 Setting up challenge subscription for:', user.uid);
+    logger.debug('🎯 Setting up challenge subscription for:', user.uid);
     
     const unsubscribe = subscribeIncomingChallenges(user.uid, (challenges) => {
-      console.log('🔔 Challenge callback received:', challenges.length, 'challenges');
+      logger.debug('🔔 Challenge callback received:', challenges.length, 'challenges');
       
       // Show the most recent challenge
       if (challenges.length > 0) {
         const challenge = challenges[0];
-        console.log('✅ Setting incoming challenge:', {
+        logger.debug('✅ Setting incoming challenge:', {
           matchId: challenge.id,
           challengerName: challenge.challengeData?.challengerName,
           status: challenge.status,
@@ -81,13 +82,13 @@ export const GameRouter: React.FC = () => {
           challengerName: challenge.challengeData?.challengerName || 'Unbekannt',
         });
       } else {
-        console.log('📭 No challenges, clearing state');
+        logger.debug('📭 No challenges, clearing state');
         setIncomingChallenge(null);
       }
     });
 
     return () => {
-      console.log('🔌 Unsubscribing from challenges');
+      logger.debug('🔌 Unsubscribing from challenges');
       unsubscribe();
     };
   }, [user]);
@@ -95,14 +96,14 @@ export const GameRouter: React.FC = () => {
   // Subscribe to accepted challenges (when opponent accepts OUR challenge)
   useEffect(() => {
     if (!user) {
-      console.log('👤 No user, skipping accepted challenge subscription');
+      logger.debug('👤 No user, skipping accepted challenge subscription');
       return;
     }
 
-    console.log('🎯 Setting up accepted challenge subscription for:', user.uid);
+    logger.debug('🎯 Setting up accepted challenge subscription for:', user.uid);
     
     const unsubscribe = subscribeAcceptedChallenges(user.uid, (matches) => {
-      console.log('🎊 Accepted challenge callback received:', matches.length, 'matches');
+      logger.debug('🎊 Accepted challenge callback received:', matches.length, 'matches');
       
       // If we have an accepted challenge, navigate to deck selection
       if (matches.length > 0) {
@@ -114,14 +115,14 @@ export const GameRouter: React.FC = () => {
         const isOnMatchPage = location.pathname.startsWith('/match/');
         
         if (!alreadyNavigated && !isOnMatchPage) {
-          console.log('✅ Challenge accepted! Navigating to deck selection:', {
+          logger.debug('✅ Challenge accepted! Navigating to deck selection:', {
             matchId: match.id,
             status: match.status,
           });
           navigatedMatchesRef.current.add(match.id);
           navigate(`/match/${match.id}/deck-select`);
         } else {
-          console.log('⏭️ Skipping navigation:', {
+          logger.debug('⏭️ Skipping navigation:', {
             alreadyNavigated,
             isOnMatchPage,
             currentPath: location.pathname,
@@ -131,7 +132,7 @@ export const GameRouter: React.FC = () => {
     });
 
     return () => {
-      console.log('🔌 Unsubscribing from accepted challenges');
+      logger.debug('🔌 Unsubscribing from accepted challenges');
       unsubscribe();
     };
   }, [user, navigate, location.pathname]);

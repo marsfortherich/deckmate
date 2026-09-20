@@ -12,6 +12,8 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { logger } from '../utils/logger';
+import { getErrorMessage, getErrorCode } from '../utils/errors';
 
 export interface FriendData {
   uid: string;
@@ -42,7 +44,7 @@ export const sendFriendRequest = async (
   toDisplayName: string
 ): Promise<void> => {
   if (import.meta.env.DEV) {
-    console.log('👥 Sending friend request:', {
+    logger.debug('👥 Sending friend request:', {
       from: fromUid,
       fromName: fromDisplayName,
       to: toUid,
@@ -80,13 +82,13 @@ export const sendFriendRequest = async (
     });
     
     if (import.meta.env.DEV) {
-      console.log('✅ Friend request created successfully');
+      logger.debug('✅ Friend request created successfully');
     }
-  } catch (error: any) {
+  } catch (error) {
     if (import.meta.env.DEV) {
       console.error('❌ Failed to create friend request:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
+      console.error('Error code:', getErrorCode(error));
+      console.error('Error message:', getErrorMessage(error));
     }
     throw error;
   }
@@ -96,7 +98,7 @@ export const sendFriendRequest = async (
  * Akzeptiert eine Freundschaftsanfrage
  */
 export const acceptFriendRequest = async (requestId: string): Promise<void> => {
-  console.log('🔍 DEBUG: Starting acceptFriendRequest for:', requestId);
+  logger.debug('🔍 DEBUG: Starting acceptFriendRequest for:', requestId);
   
   const requestRef = doc(db, 'friendRequests', requestId);
   const requestSnap = await getDoc(requestRef);
@@ -106,7 +108,7 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
   }
 
   const request = requestSnap.data() as Omit<FriendRequest, 'id'>;
-  console.log('🔍 DEBUG: Request data:', {
+  logger.debug('🔍 DEBUG: Request data:', {
     from: request.from,
     to: request.to,
     fromDisplayName: request.fromDisplayName,
@@ -130,7 +132,7 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
   const fromUserData = fromUserSnap.exists() ? fromUserSnap.data() : null;
   const toUserData = toUserSnap.exists() ? toUserSnap.data() : null;
 
-  console.log('🔍 DEBUG: Loaded user data:', {
+  logger.debug('🔍 DEBUG: Loaded user data:', {
     fromUser: fromUserData,
     toUser: toUserData
   });
@@ -151,33 +153,33 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
     addedAt: serverTimestamp(),
   };
 
-  console.log('🔍 DEBUG: Friend data to write:', {
+  logger.debug('🔍 DEBUG: Friend data to write:', {
     friendData1,
     friendData2
   });
 
-  console.log('🔍 DEBUG: Writing to users/' + request.from + '/friends/' + request.to);
+  logger.debug('🔍 DEBUG: Writing to users/' + request.from + '/friends/' + request.to);
   try {
     await setDoc(user1FriendRef, friendData1);
-    console.log('✅ DEBUG: Successfully wrote user1FriendRef');
-  } catch (error: any) {
-    console.error('❌ DEBUG: Failed to write user1FriendRef:', error.message);
+    logger.debug('✅ DEBUG: Successfully wrote user1FriendRef');
+  } catch (error) {
+    console.error('❌ DEBUG: Failed to write user1FriendRef:', getErrorMessage(error));
     throw error;
   }
 
-  console.log('🔍 DEBUG: Writing to users/' + request.to + '/friends/' + request.from);
+  logger.debug('🔍 DEBUG: Writing to users/' + request.to + '/friends/' + request.from);
   try {
     await setDoc(user2FriendRef, friendData2);
-    console.log('✅ DEBUG: Successfully wrote user2FriendRef');
-  } catch (error: any) {
-    console.error('❌ DEBUG: Failed to write user2FriendRef:', error.message);
+    logger.debug('✅ DEBUG: Successfully wrote user2FriendRef');
+  } catch (error) {
+    console.error('❌ DEBUG: Failed to write user2FriendRef:', getErrorMessage(error));
     throw error;
   }
 
   // Lösche die Anfrage
-  console.log('🔍 DEBUG: Deleting request:', requestId);
+  logger.debug('🔍 DEBUG: Deleting request:', requestId);
   await deleteDoc(requestRef);
-  console.log('✅ DEBUG: acceptFriendRequest completed successfully');
+  logger.debug('✅ DEBUG: acceptFriendRequest completed successfully');
 };
 
 /**
@@ -308,15 +310,15 @@ export const findUserByEmail = async (
   const q = query(usersRef, where('email', '==', email.toLowerCase()));
   
   if (import.meta.env.DEV) {
-    console.log('🔍 Searching for user with email:', email.toLowerCase());
+    logger.debug('🔍 Searching for user with email:', email.toLowerCase());
   }
   
   const snapshot = await getDocs(q);
 
   if (import.meta.env.DEV) {
-    console.log('🔍 Search results:', snapshot.size, 'users found');
+    logger.debug('🔍 Search results:', snapshot.size, 'users found');
     if (!snapshot.empty) {
-      console.log('🔍 Found user:', {
+      logger.debug('🔍 Found user:', {
         uid: snapshot.docs[0].id,
         data: snapshot.docs[0].data()
       });
@@ -344,15 +346,15 @@ export const findUserByUsername = async (
   const q = query(usersRef, where('username', '==', username.toLowerCase()));
   
   if (import.meta.env.DEV) {
-    console.log('🔍 Searching for user with username:', username.toLowerCase());
+    logger.debug('🔍 Searching for user with username:', username.toLowerCase());
   }
   
   const snapshot = await getDocs(q);
 
   if (import.meta.env.DEV) {
-    console.log('🔍 Search results:', snapshot.size, 'users found');
+    logger.debug('🔍 Search results:', snapshot.size, 'users found');
     if (!snapshot.empty) {
-      console.log('🔍 Found user:', {
+      logger.debug('🔍 Found user:', {
         uid: snapshot.docs[0].id,
         data: snapshot.docs[0].data()
       });
@@ -385,9 +387,9 @@ const checkExistingRequest = async (
     const request2 = await getDoc(doc(db, 'friendRequests', requestId2));
 
     return request1.exists() || request2.exists();
-  } catch (error: any) {
+  } catch (error) {
     // Permission denied ist OK - bedeutet request existiert nicht oder wir haben keine Rechte
-    if (error.code === 'permission-denied') {
+    if (getErrorCode(error) === 'permission-denied') {
       return false;
     }
     throw error;
@@ -402,9 +404,9 @@ const checkIfFriends = async (
     const friendRef = doc(db, 'users', userUid, 'friends', friendUid);
     const friendSnap = await getDoc(friendRef);
     return friendSnap.exists();
-  } catch (error: any) {
+  } catch (error) {
     // Permission denied ist OK - bedeutet nicht befreundet
-    if (error.code === 'permission-denied') {
+    if (getErrorCode(error) === 'permission-denied') {
       return false;
     }
     throw error;

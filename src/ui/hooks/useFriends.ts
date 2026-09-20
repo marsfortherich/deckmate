@@ -12,6 +12,8 @@ import {
   getOutgoingRequests,
   findUserByUsername,
 } from '../../services/friendService';
+import { logger } from '../../utils/logger';
+import { getErrorMessage } from '../../utils/errors';
 
 export interface UseFriendsReturn {
   friends: FriendData[];
@@ -119,10 +121,10 @@ export const useFriends = (): UseFriendsReturn => {
         setOutgoingRequests(requests);
 
         if (import.meta.env.DEV) {
-          console.log('👥 Friend request sent to:', username);
+          logger.debug('👥 Friend request sent to:', username);
         }
-      } catch (err: any) {
-        const errorMessage = err.message || 'Fehler beim Senden der Anfrage';
+      } catch (err) {
+        const errorMessage = getErrorMessage(err, 'Fehler beim Senden der Anfrage');
         setError(errorMessage);
         throw new Error(errorMessage);
       }
@@ -138,10 +140,10 @@ export const useFriends = (): UseFriendsReturn => {
         await acceptRequest(requestId);
 
         if (import.meta.env.DEV) {
-          console.log('👥 Friend request accepted:', requestId);
+          logger.debug('👥 Friend request accepted:', requestId);
         }
-      } catch (err: any) {
-        const errorMessage = err.message || 'Fehler beim Akzeptieren';
+      } catch (err) {
+        const errorMessage = getErrorMessage(err, 'Fehler beim Akzeptieren');
         setError(errorMessage);
         throw new Error(errorMessage);
       }
@@ -157,10 +159,10 @@ export const useFriends = (): UseFriendsReturn => {
         await rejectRequest(requestId);
 
         if (import.meta.env.DEV) {
-          console.log('👥 Friend request rejected:', requestId);
+          logger.debug('👥 Friend request rejected:', requestId);
         }
-      } catch (err: any) {
-        const errorMessage = err.message || 'Fehler beim Ablehnen';
+      } catch (err) {
+        const errorMessage = getErrorMessage(err, 'Fehler beim Ablehnen');
         setError(errorMessage);
         throw new Error(errorMessage);
       }
@@ -180,10 +182,10 @@ export const useFriends = (): UseFriendsReturn => {
         await removeFriendFromList(user.uid, friendUid);
 
         if (import.meta.env.DEV) {
-          console.log('👥 Friend removed:', friendUid);
+          logger.debug('👥 Friend removed:', friendUid);
         }
-      } catch (err: any) {
-        const errorMessage = err.message || 'Fehler beim Entfernen';
+      } catch (err) {
+        const errorMessage = getErrorMessage(err, 'Fehler beim Entfernen');
         setError(errorMessage);
         throw new Error(errorMessage);
       }
