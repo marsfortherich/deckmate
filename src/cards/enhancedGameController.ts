@@ -7,131 +7,41 @@
  * - Special card lifecycle: keep or shuffle back at turn end
  */
 
-import { GameState, GameConfig, Color, createInitialGameState, Move, applyMove, generatePieceMoves, Position } from '../core/index.js';
-import { isCheckmate, isStalemate, wouldExposeKing } from '../core/moves/moveValidator.js';
+import { GameConfig, Color, createInitialGameState, Move, applyMove, generatePieceMoves, Position } from '../core/index.js';
+import { wouldExposeKing } from '../core/moves/moveValidator.js';
 import { Card, EffectParams, NO_PARAMS } from './types/index.js';
 import { playCard } from './effects/effectResolver.js';
 import {
   HandManager,
-  PlayerHand,
   HandConfig,
   DEFAULT_HAND_CONFIG,
 } from './moveCards/handManagerV2.js';
-import { generateMoveCards } from './moveCards/moveCardGenerator.js';
 import { IGameController, PlayerView, ActionResult } from './gameController/IGameController.js';
+import {
+  EnhancedGameState,
+  createEmptyDeck,
+  createDeckFromCards,
+  drawFromDeck,
+  addToUsed,
+  shuffleCardBack,
+} from './controller/state.js';
+import {
+  applyEffectMetadata,
+  shouldSpecialCardEndTurn,
+} from './controller/effectMetadata.js';
+import {
+  checkGameOver,
+  completeTurnChange,
+} from './controller/turnLifecycle.js';
 
 /**
- * Simple deck state for special cards
+ * The match state and its deck primitives live in ./controller/state.js so the
+ * extracted behaviours can share them without importing this module.
+ * Re-exported here because consumers (notably gameStateSerializer) have always
+ * imported them from the controller.
  */
-export interface SpecialCardDeck {
-  readonly deck: readonly Card[];       // Cards in deck
-  readonly used: readonly Card[];       // Cards that have been played
-}
+export type { SpecialCardDeck, EnhancedGameState } from './controller/state.js';
 
-/**
- * Vollständiger Spiel-Zustand mit Decks
- */
-export interface EnhancedGameState {
-  readonly gameState: GameState;
-  readonly whiteHand: PlayerHand;
-  readonly blackHand: PlayerHand;
-  readonly whiteDeck: SpecialCardDeck;
-  readonly blackDeck: SpecialCardDeck;
-  readonly pendingSpecialCardDecision: {
-    player: Color;
-    card: Card;
-  } | null;  // Pending decision for current special card
-  readonly whiteDrawModifier: number;  // Temporary modifier to draw count
-  readonly blackDrawModifier: number;
-  readonly skipNextTurn: Color | null;  // Which player should skip their next turn
-  readonly skipTurnAfterNext: Color | null;  // Which player should skip after one turn (Time Warp)
-  readonly freeMoveEnabled: Color | null;  // Which player has free move enabled this turn
-  readonly whiteFocusedPieceType: string | null;  // Which piece type white should draw moves for
-  readonly blackFocusedPieceType: string | null;  // Which piece type black should draw moves for
-  readonly pendingPieceTypeChoice: {  // Awaiting piece type choice for Focus Strategy
-    player: Color;
-    cardId: string;
-  } | null;
-  readonly pendingCardSelection: {  // Awaiting card selection from used pile
-    player: Color;
-    action: 'recover' | 'activate';
-    maxCount: number;  // Max number of cards to select (2 for recover, 1 for activate)
-    triggeringCardId: string;  // The card that triggered this selection (to exclude from selection)
-  } | null;
-  readonly pendingBoardAction: {  // Awaiting board position selection
-    player: Color;
-    action: 'swapPieces' | 'placeTrap' | 'convertPawn';
-    cardId: string;
-  } | null;
-  readonly playHistory: readonly {
-    player: Color;
-    card: Card;
-    turnNumber: number;
-    isMoveCard: boolean;
-  }[];  // History of all cards played
-}
-
-/**
- * Create empty deck
- */
-function createEmptyDeck(): SpecialCardDeck {
-  return {
-    deck: [],
-    used: [],
-  };
-}
-
-/**
- * Create deck from cards
- */
-function createDeckFromCards(cards: readonly Card[]): SpecialCardDeck {
-  // Shuffle cards
-  const shuffled = [...cards].sort(() => Math.random() - 0.5);
-  return {
-    deck: shuffled,
-    used: [],
-  };
-}
-
-/**
- * Draw card from deck
- */
-function drawFromDeck(deck: SpecialCardDeck): { newDeck: SpecialCardDeck; drawnCard: Card | null } {
-  if (deck.deck.length === 0) {
-    // Deck is empty - no reshuffling from used pile
-    return { newDeck: deck, drawnCard: null };
-  }
-  
-  const [drawnCard, ...remaining] = deck.deck;
-  return {
-    newDeck: {
-      ...deck,
-      deck: remaining,
-    },
-    drawnCard: drawnCard || null,
-  };
-}
-
-/**
- * Add card to used pile
- */
-function addToUsed(deck: SpecialCardDeck, card: Card): SpecialCardDeck {
-  return {
-    ...deck,
-    used: [...deck.used, card],
-  };
-}
-
-/**
- * Shuffle card back into deck
- */
-function shuffleCardBack(deck: SpecialCardDeck, card: Card): SpecialCardDeck {
-  const newDeck = [...deck.deck, card].sort(() => Math.random() - 0.5);
-  return {
-    ...deck,
-    deck: newDeck,
-  };
-}
 
 /**
  * Enhanced Game Controller with Deck Building
@@ -283,7 +193,7 @@ export class EnhancedGameController implements IGameController {
     };
     
     // Continue with turn change (skip decision check since we just handled it)
-    this.completeTurnChange(true);
+    this.state = completeTurnChange(this.state, true);
     
     return {
       success: true,
@@ -356,7 +266,7 @@ export class EnhancedGameController implements IGameController {
     };
     
     // Check for game over after playing card
-    this.checkGameOver();
+    this.state = checkGameOver(this.state);
     if (this.state.gameState.status === 'checkmate' || 
         this.state.gameState.status === 'stalemate' ||
         this.state.gameState.status === 'draw') {
@@ -369,7 +279,7 @@ export class EnhancedGameController implements IGameController {
     
     // Handle metadata actions from effect
     if (result.metadata) {
-      this.handleEffectMetadata(result.metadata, player);
+      this.state = applyEffectMetadata(this.state, result.metadata, player);
       
       // Check if this is Focus Strategy - needs piece type choice
       if (result.metadata.action === 'focusStrategy') {
@@ -459,7 +369,7 @@ export class EnhancedGameController implements IGameController {
     if (isMoveCard) {
       // Move cards always initiate turn change (check for special cards)
       this.initiateTurnChange();
-    } else if (this.shouldSpecialCardEndTurn(result.metadata)) {
+    } else if (shouldSpecialCardEndTurn(result.metadata)) {
       // Special cards that end turn need to switch player first, then complete turn change
       // (Move cards already switch player in applyMove, but special cards don't)
       const nextPlayer: Color = player === 'white' ? 'black' : 'white';
@@ -471,7 +381,7 @@ export class EnhancedGameController implements IGameController {
           turnNumber: this.state.gameState.turnNumber + 1,
         },
       };
-      this.completeTurnChange();
+      this.state = completeTurnChange(this.state);
     }
     
     return {
@@ -481,488 +391,17 @@ export class EnhancedGameController implements IGameController {
     };
   }
   
-  /**
-   * Check if a special card should end the turn
-   * Cards that modify the current player's hand (draw, reroll, freeMove) don't end the turn
-   * Cards that affect the board or opponent do end the turn
-   */
-  private shouldSpecialCardEndTurn(metadata?: Record<string, unknown>): boolean {
-    if (!metadata || !metadata.action) {
-      // No metadata or action - card affects board directly, end turn
-      return true;
-    }
-    
-    const action = metadata.action as string;
-    
-    // Actions that allow continuing the turn (require further player input or modify player's own state)
-    const continueActions = ['drawCard', 'rerollMoves', 'drawExtraMoves', 'freeMove', 'focusStrategy', 'opponentDrawLess', 'skipTurn', 'doubleTurn', 'stealCard'];
-    
-    if (continueActions.includes(action)) {
-      return false; // Don't end turn, let player continue
-    }
-    
-    // All other actions end the turn
-    return true;
-  }
   
-  /**
-   * Handle metadata actions returned by effects
-   */
-  private handleEffectMetadata(metadata: Record<string, unknown>, player: Color): void {
-    const action = metadata.action as string;
-    
-    switch (action) {
-      case 'drawCard': {
-        // Draw special card from deck
-        const count = (metadata.count as number) || 1;
-        const deck = player === 'white' ? this.state.whiteDeck : this.state.blackDeck;
-        const hand = player === 'white' ? this.state.whiteHand : this.state.blackHand;
-        
-        let currentDeck = deck;
-        let currentHand = hand;
-        
-        for (let i = 0; i < count; i++) {
-          const { newDeck, drawnCard } = drawFromDeck(currentDeck);
-          if (drawnCard) {
-            currentHand = HandManager.addSpecialCard(currentHand, drawnCard);
-            currentDeck = newDeck;
-          }
-        }
-        
-        this.state = {
-          ...this.state,
-          whiteHand: player === 'white' ? currentHand : this.state.whiteHand,
-          blackHand: player === 'black' ? currentHand : this.state.blackHand,
-          whiteDeck: player === 'white' ? currentDeck : this.state.whiteDeck,
-          blackDeck: player === 'black' ? currentDeck : this.state.blackDeck,
-        };
-        break;
-      }
-      
-      case 'rerollMoves': {
-        // Clear current move cards and draw new ones
-        const hand = player === 'white' ? this.state.whiteHand : this.state.blackHand;
-        const clearedHand = HandManager.clearMoveCards(hand);
-        const newHand = HandManager.drawMoveCards(
-          this.state.gameState,
-          player,
-          clearedHand
-        );
-        
-        this.state = {
-          ...this.state,
-          whiteHand: player === 'white' ? newHand : this.state.whiteHand,
-          blackHand: player === 'black' ? newHand : this.state.blackHand,
-        };
-        break;
-      }
-      
-      case 'drawExtraMoves': {
-        // Draw additional move cards (beyond normal max)
-        const count = (metadata.count as number) || 3;
-        const hand = player === 'white' ? this.state.whiteHand : this.state.blackHand;
-        
-        // Temporarily increase draw limit
-        const tempHand = {
-          ...hand,
-          config: {
-            ...hand.config,
-            drawMoveCardsPerTurn: count,
-          },
-        };
-        
-        // Draw with ignoreMax=true to allow going beyond 5 cards
-        const newHand = HandManager.drawMoveCards(
-          this.state.gameState,
-          player,
-          tempHand,
-          true  // Ignore max limit
-        );
-        
-        // Restore original config
-        const finalHand = {
-          ...newHand,
-          config: hand.config,
-        };
-        
-        this.state = {
-          ...this.state,
-          whiteHand: player === 'white' ? finalHand : this.state.whiteHand,
-          blackHand: player === 'black' ? finalHand : this.state.blackHand,
-        };
-        break;
-      }
-      
-      case 'opponentDrawLess': {
-        // Opponent draws fewer cards next turn
-        const reduction = (metadata.reduction as number) || 1;
-        const opponent = player === 'white' ? 'black' : 'white';
-        
-        this.state = {
-          ...this.state,
-          whiteDrawModifier: opponent === 'white' ? -reduction : this.state.whiteDrawModifier,
-          blackDrawModifier: opponent === 'black' ? -reduction : this.state.blackDrawModifier,
-        };
-        break;
-      }
-      
-      case 'restrictMoves': {
-        // Opponent gets fewer move cards next turn
-        const reduction = (metadata.reduction as number) || 2;
-        const opponent = player === 'white' ? 'black' : 'white';
-        
-        this.state = {
-          ...this.state,
-          whiteDrawModifier: opponent === 'white' ? -reduction : this.state.whiteDrawModifier,
-          blackDrawModifier: opponent === 'black' ? -reduction : this.state.blackDrawModifier,
-        };
-        break;
-      }
-      
-      case 'skipTurn': {
-        // Opponent skips their next turn
-        const opponent = player === 'white' ? 'black' : 'white';
-        
-        this.state = {
-          ...this.state,
-          skipNextTurn: opponent,
-        };
-        break;
-      }
-      
-      case 'doubleTurn': {
-        // Player gets two turns after opponent takes one turn
-        const opponent = player === 'white' ? 'black' : 'white';
-        
-        this.state = {
-          ...this.state,
-          skipTurnAfterNext: opponent,
-        };
-        break;
-      }
-      
-      case 'freeMove': {
-        // Enable free move for current player this turn
-        this.state = {
-          ...this.state,
-          freeMoveEnabled: player,
-        };
-        break;
-      }
-      
-      case 'focusStrategy': {
-        // Player needs to choose a piece type for next turn
-        // This doesn't modify state directly - it requires player input
-        // The UI will prompt for piece type choice
-        break;
-      }
-      
-      case 'recoverCards': {
-        // Player needs to select cards from used pile to recover
-        const count = (metadata.count as number) || 2;
-        const triggeringCardId = (metadata.triggeringCardId as string) || '';
-        this.state = {
-          ...this.state,
-          pendingCardSelection: {
-            player,
-            action: 'recover',
-            maxCount: count,
-            triggeringCardId,
-          },
-        };
-        break;
-      }
-      
-      case 'activateUsedCard': {
-        // Player needs to select a card from used pile to activate
-        const triggeringCardId = (metadata.triggeringCardId as string) || '';
-        this.state = {
-          ...this.state,
-          pendingCardSelection: {
-            player,
-            action: 'activate',
-            maxCount: 1,
-            triggeringCardId,
-          },
-        };
-        break;
-      }
-      
-      case 'stealCard': {
-        // Draw a random card from opponent's deck
-        const opponent: Color = player === 'white' ? 'black' : 'white';
-        const opponentDeck = opponent === 'white' ? this.state.whiteDeck : this.state.blackDeck;
-        const playerHand = player === 'white' ? this.state.whiteHand : this.state.blackHand;
-        
-        // Draw from opponent's deck
-        const { newDeck: updatedOpponentDeck, drawnCard } = drawFromDeck(opponentDeck);
-        
-        if (drawnCard) {
-          // Add stolen card to player's hand
-          const updatedPlayerHand = HandManager.addSpecialCard(playerHand, drawnCard);
-          
-          this.state = {
-            ...this.state,
-            whiteHand: player === 'white' ? updatedPlayerHand : this.state.whiteHand,
-            blackHand: player === 'black' ? updatedPlayerHand : this.state.blackHand,
-            whiteDeck: opponent === 'white' ? updatedOpponentDeck : this.state.whiteDeck,
-            blackDeck: opponent === 'black' ? updatedOpponentDeck : this.state.blackDeck,
-          };
-        }
-        // If opponent's deck is empty, nothing happens
-        break;
-      }
-      
-      // Add more cases as needed
-      default:
-        // Unknown action - ignore
-        break;
-    }
-  }
   
-  /**
-   * Check for game over conditions and update game status
-   */
-  private checkGameOver(): void {
-    const currentState = this.state.gameState;
-    
-    // Skip if game is already over
-    if (currentState.status === 'checkmate' || 
-        currentState.status === 'stalemate' ||
-        currentState.status === 'draw' ||
-        currentState.status === 'resigned') {
-      return;
-    }
-    
-    const currentPlayer = currentState.currentPlayer;
-    
-    // Check for checkmate
-    if (isCheckmate(currentState.boardState.board, currentPlayer)) {
-      this.state = {
-        ...this.state,
-        gameState: {
-          ...currentState,
-          status: 'checkmate',
-        },
-      };
-      return;
-    }
-    
-    // Check for stalemate
-    if (isStalemate(currentState.boardState.board, currentPlayer)) {
-      this.state = {
-        ...this.state,
-        gameState: {
-          ...currentState,
-          status: 'stalemate',
-        },
-      };
-      return;
-    }
-    
-    // Check for 50-move rule draw
-    if (currentState.halfMoveClock >= 100) {
-      this.state = {
-        ...this.state,
-        gameState: {
-          ...currentState,
-          status: 'draw',
-        },
-      };
-      return;
-    }
-  }
   
   /**
    * Initiate turn change
    */
   private initiateTurnChange(): void {
     // Complete turn change immediately (decision happens at start of next turn)
-    this.completeTurnChange(false);
+    this.state = completeTurnChange(this.state, false);
   }
   
-  /**
-   * Complete turn change after special card decision
-   * @param skipDecisionCheck - Skip the special card decision check (used after handling a decision)
-   */
-  private completeTurnChange(skipDecisionCheck: boolean = false): void {
-    const currentPlayer = this.state.gameState.currentPlayer;
-    
-    // Check for game over conditions before processing turn
-    this.checkGameOver();
-    if (this.state.gameState.status === 'checkmate' || 
-        this.state.gameState.status === 'stalemate' ||
-        this.state.gameState.status === 'draw') {
-      return;  // Don't process turn change if game is over
-    }
-    
-    // FIRST: Check if current player should skip their turn (before showing any dialogs)
-    if (this.state.skipNextTurn === currentPlayer) {
-      // Skip this player's turn - switch back to opponent without drawing cards
-      const opponent: Color = currentPlayer === 'white' ? 'black' : 'white';
-      
-      // Switch the player in game state
-      const newGameState: GameState = {
-        ...this.state.gameState,
-        currentPlayer: opponent,
-        turnNumber: this.state.gameState.turnNumber + 1,
-      };
-      
-      this.state = {
-        ...this.state,
-        gameState: newGameState,
-        skipNextTurn: null,
-      };
-      
-      // Now continue with the opponent's turn (recursive call, check for decisions)
-      this.completeTurnChange(false);
-      return;
-    }
-    
-    // SECOND: At the start of this player's actual turn, check if they have an unused special card from last turn
-    // Skip this check if we just handled a decision
-    const currentHand = currentPlayer === 'white' ? this.state.whiteHand : this.state.blackHand;
-    if (!skipDecisionCheck && currentHand.specialCards.length > 0) {
-      const unusedSpecialCard = currentHand.specialCards[0];
-      
-      // Set pending decision for current player
-      this.state = {
-        ...this.state,
-        pendingSpecialCardDecision: {
-          player: currentPlayer,
-          card: unusedSpecialCard,
-        },
-        // Clear the special card from hand temporarily
-        whiteHand: currentPlayer === 'white' 
-          ? HandManager.clearSpecialCards(this.state.whiteHand)
-          : this.state.whiteHand,
-        blackHand: currentPlayer === 'black'
-          ? HandManager.clearSpecialCards(this.state.blackHand)
-          : this.state.blackHand,
-      };
-      
-      // Don't continue - wait for player decision
-      return;
-    }
-    
-    // Check if skipTurnAfterNext should activate now
-    if (this.state.skipTurnAfterNext === currentPlayer) {
-      // Activate skipNextTurn for this player after this turn
-      this.state = {
-        ...this.state,
-        skipNextTurn: currentPlayer,
-        skipTurnAfterNext: null,
-      };
-    }
-    
-    // Clear move cards from previous player
-    const prevPlayer = currentPlayer === 'white' ? 'black' : 'white';
-    const prevHand = prevPlayer === 'white' ? this.state.whiteHand : this.state.blackHand;
-    const clearedPrevHand = HandManager.clearMoveCards(prevHand);
-    
-    // Get draw modifier for current player
-    const drawModifier = currentPlayer === 'white' ? this.state.whiteDrawModifier : this.state.blackDrawModifier;
-    
-    // Get focused piece type for current player
-    const focusedPieceType = currentPlayer === 'white' ? this.state.whiteFocusedPieceType : this.state.blackFocusedPieceType;
-    
-    // Draw new move cards for current player (with modifier and focus filter)
-    // Re-fetch hand after potential state changes
-    const handForDrawing = currentPlayer === 'white' ? this.state.whiteHand : this.state.blackHand;
-    
-    // Apply draw modifier by adjusting the config temporarily
-    const modifiedConfig = {
-      ...handForDrawing.config,
-      drawMoveCardsPerTurn: Math.max(1, handForDrawing.config.drawMoveCardsPerTurn + drawModifier),
-    };
-    
-    const tempHand = {
-      ...handForDrawing,
-      config: modifiedConfig,
-    };
-    
-    let handWithMoveCards: PlayerHand;
-    
-    if (focusedPieceType) {
-      // Generate all move cards, then filter by focused piece type
-      const allMoveCards = generateMoveCards(this.state.gameState.boardState, currentPlayer);
-      const filteredCards = allMoveCards.filter(card => {
-        // Card names start with piece type (e.g., "Pawn a2 → a3")
-        const pieceName = focusedPieceType.charAt(0).toUpperCase() + focusedPieceType.slice(1);
-        return card.name.startsWith(pieceName);
-      });
-      
-      const drawCount = modifiedConfig.drawMoveCardsPerTurn;
-      
-      // Shuffle and take focused cards first
-      const shuffledFiltered = [...filteredCards].sort(() => Math.random() - 0.5);
-      const focusedDraw = shuffledFiltered.slice(0, drawCount);
-      
-      // If we don't have enough focused cards, fill with random moves
-      let finalDraw = focusedDraw;
-      if (focusedDraw.length < drawCount) {
-        const remaining = drawCount - focusedDraw.length;
-        
-        // Get cards that aren't already in focusedDraw
-        const otherCards = allMoveCards.filter(card => 
-          !focusedDraw.some(fc => fc.id === card.id)
-        );
-        
-        // Shuffle and take remaining from other cards
-        const shuffledOther = [...otherCards].sort(() => Math.random() - 0.5);
-        const randomDraw = shuffledOther.slice(0, remaining);
-        
-        finalDraw = [...focusedDraw, ...randomDraw];
-      }
-      
-      handWithMoveCards = {
-        ...tempHand,
-        moveCards: [...tempHand.moveCards, ...finalDraw],
-      };
-    } else {
-      // Normal draw without filter
-      handWithMoveCards = HandManager.drawMoveCards(
-        this.state.gameState,
-        currentPlayer,
-        tempHand
-      );
-    }
-    
-    // Restore original config
-    const restoredHand = {
-      ...handWithMoveCards,
-      config: handForDrawing.config,
-    };
-    
-    // Draw special card for current player (if slot is empty)
-    let finalCurrentHand = restoredHand;
-    let currentDeck = currentPlayer === 'white' ? this.state.whiteDeck : this.state.blackDeck;
-    
-    if (restoredHand.specialCards.length === 0) {
-      const { newDeck, drawnCard } = drawFromDeck(currentDeck);
-      if (drawnCard) {
-        finalCurrentHand = HandManager.addSpecialCard(restoredHand, drawnCard);
-        currentDeck = newDeck;
-      }
-    }
-    
-    // Update state and reset draw modifiers
-    this.state = {
-      ...this.state,
-      whiteHand: currentPlayer === 'white' ? finalCurrentHand : clearedPrevHand,
-      blackHand: currentPlayer === 'black' ? finalCurrentHand : clearedPrevHand,
-      whiteDeck: currentPlayer === 'white' ? currentDeck : this.state.whiteDeck,
-      blackDeck: currentPlayer === 'black' ? currentDeck : this.state.blackDeck,
-      // Reset draw modifier after using it
-      whiteDrawModifier: currentPlayer === 'white' ? 0 : this.state.whiteDrawModifier,
-      blackDrawModifier: currentPlayer === 'black' ? 0 : this.state.blackDrawModifier,
-      // Clear free move flag (it's only for one turn)
-      freeMoveEnabled: null,
-      // Clear focused piece type after using it
-      whiteFocusedPieceType: currentPlayer === 'white' ? null : this.state.whiteFocusedPieceType,
-      blackFocusedPieceType: currentPlayer === 'black' ? null : this.state.blackFocusedPieceType,
-    };
-  }
   
   /**
    * Draw special card (legacy method for compatibility)
@@ -1049,7 +488,7 @@ export class EnhancedGameController implements IGameController {
     };
     
     // Check for game over after move
-    this.checkGameOver();
+    this.state = checkGameOver(this.state);
     
     // If game over, don't process turn change
     if (this.state.gameState.status === 'checkmate' || 
@@ -1075,7 +514,7 @@ export class EnhancedGameController implements IGameController {
       };
     } else {
       // No special card, complete turn change
-      this.completeTurnChange();
+      this.state = completeTurnChange(this.state);
     }
     
     return {
@@ -1348,7 +787,7 @@ export class EnhancedGameController implements IGameController {
       
       // Handle any metadata from the effect
       if (result.metadata) {
-        this.handleEffectMetadata(result.metadata, player);
+        this.state = applyEffectMetadata(this.state, result.metadata, player);
       }
     }
 
