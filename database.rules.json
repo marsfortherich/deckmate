@@ -1,15 +1,51 @@
 {
   "rules": {
+    ".read": false,
+    ".write": false,
+
     "status": {
       "$uid": {
-        ".read": true,
+        ".read": "auth != null",
         ".write": "auth != null && $uid === auth.uid"
       }
     },
+
     "games": {
       "$matchId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": "auth != null && data.child('players').child(auth.uid).val() === true",
+
+        ".write": "auth != null && ((data.exists() && data.child('players').child(auth.uid).val() === true) || (!data.exists() && newData.child('players').child(auth.uid).val() === true))",
+
+        "players": {
+          ".validate": "newData.hasChildren() && newData.child(auth.uid).val() === true",
+          "$uid": {
+            ".validate": "newData.isBoolean() && newData.val() === true"
+          }
+        },
+
+        "matchId": {
+          ".validate": "newData.isString() && newData.val() === $matchId"
+        },
+
+        "createdAt": {
+          ".validate": "newData.isNumber() && (!data.exists() || data.val() === newData.val())"
+        },
+
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+
+        "gameState": {
+          ".validate": "newData.hasChildren()"
+        },
+
+        "history": {
+          ".validate": true
+        },
+
+        "$other": {
+          ".validate": false
+        }
       }
     }
   }

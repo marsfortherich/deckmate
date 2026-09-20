@@ -71,7 +71,12 @@ export function useSharedGameState(
   matchId: string,
   player: Color,
   whiteDeck?: readonly Card[],
-  blackDeck?: readonly Card[]
+  blackDeck?: readonly Card[],
+  /**
+   * The two participants' uids. Written into the RTDB node on creation so the
+   * security rules can authorise exactly these two accounts and nobody else.
+   */
+  playerUids: readonly string[] = []
 ): UseSharedGameStateReturn {
   const [loading, setLoading] = useState(true);
   const [playerView, setPlayerView] = useState<PlayerView | null>(null);
@@ -148,7 +153,7 @@ export function useSharedGameState(
             logger.debug('🔄 Falling back to new controller');
             const initialState = controller.getState();
             const serializedState = serializeGameState(initialState);
-            await initializeGameState(matchId, serializedState);
+            await initializeGameState(matchId, serializedState, playerUids);
             controllerRef.current = controller;
             setControllerReady(true);
             logger.debug('✅ Controller initialized with fallback');
@@ -167,7 +172,7 @@ export function useSharedGameState(
           // Save initial state to RTDB (serialized)
           const initialState = controller.getState();
           const serializedState = serializeGameState(initialState);
-          await initializeGameState(matchId, serializedState);
+          await initializeGameState(matchId, serializedState, playerUids);
           setControllerReady(true);
           logger.debug('💾 Saved initial state to RTDB');
           logger.debug('✅ Controller initialized from scratch');
@@ -192,7 +197,7 @@ export function useSharedGameState(
     };
 
     initController();
-  }, [matchId, whiteDeck, blackDeck, refreshView, player]);
+  }, [matchId, whiteDeck, blackDeck, refreshView, player, playerUids]);
 
   // Subscribe to RTDB updates
   useEffect(() => {

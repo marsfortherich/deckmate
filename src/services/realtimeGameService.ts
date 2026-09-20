@@ -16,25 +16,51 @@ export interface GameHistory {
   data: any;
 }
 
+/**
+ * Membership map for a game node: `{ [uid]: true }` for each of the two players.
+ *
+ * This is written into the RTDB node itself because security rules cannot read
+ * Firestore, where the authoritative match document lives. The rules in
+ * database.rules.json gate every read and write on the caller appearing here,
+ * and forbid changing it after creation.
+ */
+export type GamePlayers = Readonly<Record<string, true>>;
+
 export interface OnlineGameState {
   matchId: string;
+  players: GamePlayers;
   gameState: SerializedGameState;  // Serialized version without functions
   history: GameHistory[];
   createdAt: number;
   updatedAt: number;
 }
 
+/** Build the membership map the security rules check against. */
+export const toGamePlayers = (playerUids: readonly string[]): GamePlayers =>
+  Object.fromEntries(playerUids.filter(Boolean).map((uid) => [uid, true as const]));
+
 /**
- * Initialize game state for a match
+ * Initialize game state for a match.
+ *
+ * @param playerUids The two participants. Written into the node so the security
+ *   rules can authorise both players; the creator must be one of them.
  */
 export const initializeGameState = async (
   matchId: string,
-  initialGameState: SerializedGameState  // Serialized version
+  initialGameState: SerializedGameState,  // Serialized version
+  playerUids: readonly string[]
 ): Promise<void> => {
+  const players = toGamePlayers(playerUids);
+
+  if (Object.keys(players).length === 0) {
+    throw new Error(`Cannot initialize game ${matchId} without player uids`);
+  }
+
   const gameRef = ref(rtdb, `games/${matchId}`);
-  
+
   const onlineGameState: OnlineGameState = {
     matchId,
+    players,
     gameState: initialGameState,
     history: [],
     createdAt: Date.now(),
@@ -44,7 +70,7 @@ export const initializeGameState = async (
   // Convert to JSON and back to ensure proper serialization
   const jsonString = JSON.stringify(onlineGameState);
   const parsedData = JSON.parse(jsonString);
-  
+
   await set(gameRef, parsedData);
 
   logger.debug('🎮 Game state initialized in Realtime DB:', matchId);
