@@ -57,6 +57,9 @@ export const OnlineMultiplayerGameView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [playerColor, setPlayerColor] = useState<Color | null>(null);
   const [playerDecks, setPlayerDecks] = useState<{ white: Card[]; black: Card[] } | null>(null);
+  // Both participants' uids, written into the RTDB node so its security rules
+  // can authorise exactly these two accounts.
+  const [playerUids, setPlayerUids] = useState<readonly string[]>([]);
 
   // Subscribe to match to get player colors and decks
   useEffect(() => {
@@ -76,6 +79,14 @@ export const OnlineMultiplayerGameView: React.FC = () => {
       // Determine player color
       const color = matchData.players[0] === user.uid ? 'white' : 'black';
       setPlayerColor(color);
+      setPlayerUids((previous) => {
+        // Keep the same array identity when the uids have not changed, so the
+        // game-state hook does not re-initialise on every match snapshot.
+        const next = matchData.players;
+        const same =
+          previous.length === next.length && previous.every((uid, i) => uid === next[i]);
+        return same ? previous : next;
+      });
       logger.debug('🎨 Player color:', color);
 
       // Get decks
@@ -104,7 +115,8 @@ export const OnlineMultiplayerGameView: React.FC = () => {
     matchId || '',
     playerColor || 'white',
     playerDecks?.white,
-    playerDecks?.black
+    playerDecks?.black,
+    playerUids
   );
 
   const {

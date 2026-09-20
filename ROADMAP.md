@@ -62,10 +62,18 @@ problems, best fixed together.
       `games/$id/private/$uid` (your hand, your deck order) readable only by you.
       Requires reworking `gameStateSerializer.ts`, which currently emits one blob
       containing `whiteHand`, `blackHand`, `whiteDeck` and `blackDeck`.
-- [ ] **Lock down `database.rules.json`.** It currently grants read *and write* on
-      `games/$matchId` to every authenticated user. Restrict to the two players.
-- [ ] **Tighten the Firestore `matches` rules** — `allow update` is unconditional for
-      both players, so either can rewrite any field including the result.
+- [x] **Lock down `database.rules.json`.** Read and write on `games/$matchId` now
+      require the caller to appear in a `players` map written into the node at
+      creation. 16 emulator-backed tests in `src/test/rules/`.
+- [x] **Tighten the Firestore `matches` rules** — update now requires `players`,
+      `mode` and `createdAt` to be unchanged.
+- [x] **Close the deck-read leak** (found during this work, not originally listed).
+      `match /users/{document=**}` granted read on every subcollection to every
+      authenticated account, so all decks were public. Scoped to `users/{userId}`.
+      14 Firestore rules tests.
+- [ ] **Move email/username lookup behind a Cloud Function.** Any authenticated
+      account can still read any user document, which exposes stored emails.
+      `findUserByEmail` / `findUserByUsername` depend on that read.
 - [ ] **Make the Cloud Functions authoritative.** Extract `src/core` + `src/cards` into
       a shared workspace package that `functions/` can import, then implement the two
       `// TODO: Validate ...` bodies in `functions/src/index.ts` against the real engine.
