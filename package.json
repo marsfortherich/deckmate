@@ -24,7 +24,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:run": "vitest run",
-    "test:rules": "firebase emulators:exec --only database --project demo-deckmate \"vitest run --config vitest.rules.config.ts\""
+    "test:rules": "firebase emulators:exec --only database,firestore --project demo-deckmate \"vitest run --config vitest.rules.config.ts\""
   },
   "main": "electron.js",
   "build": {
