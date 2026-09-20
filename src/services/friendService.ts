@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { logger } from '../utils/logger';
+import { getErrorMessage, getErrorCode } from '../utils/errors';
 
 export interface FriendData {
   uid: string;
@@ -83,11 +84,11 @@ export const sendFriendRequest = async (
     if (import.meta.env.DEV) {
       logger.debug('✅ Friend request created successfully');
     }
-  } catch (error: any) {
+  } catch (error) {
     if (import.meta.env.DEV) {
       console.error('❌ Failed to create friend request:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
+      console.error('Error code:', getErrorCode(error));
+      console.error('Error message:', getErrorMessage(error));
     }
     throw error;
   }
@@ -161,8 +162,8 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
   try {
     await setDoc(user1FriendRef, friendData1);
     logger.debug('✅ DEBUG: Successfully wrote user1FriendRef');
-  } catch (error: any) {
-    console.error('❌ DEBUG: Failed to write user1FriendRef:', error.message);
+  } catch (error) {
+    console.error('❌ DEBUG: Failed to write user1FriendRef:', getErrorMessage(error));
     throw error;
   }
 
@@ -170,8 +171,8 @@ export const acceptFriendRequest = async (requestId: string): Promise<void> => {
   try {
     await setDoc(user2FriendRef, friendData2);
     logger.debug('✅ DEBUG: Successfully wrote user2FriendRef');
-  } catch (error: any) {
-    console.error('❌ DEBUG: Failed to write user2FriendRef:', error.message);
+  } catch (error) {
+    console.error('❌ DEBUG: Failed to write user2FriendRef:', getErrorMessage(error));
     throw error;
   }
 
@@ -386,9 +387,9 @@ const checkExistingRequest = async (
     const request2 = await getDoc(doc(db, 'friendRequests', requestId2));
 
     return request1.exists() || request2.exists();
-  } catch (error: any) {
+  } catch (error) {
     // Permission denied ist OK - bedeutet request existiert nicht oder wir haben keine Rechte
-    if (error.code === 'permission-denied') {
+    if (getErrorCode(error) === 'permission-denied') {
       return false;
     }
     throw error;
@@ -403,9 +404,9 @@ const checkIfFriends = async (
     const friendRef = doc(db, 'users', userUid, 'friends', friendUid);
     const friendSnap = await getDoc(friendRef);
     return friendSnap.exists();
-  } catch (error: any) {
+  } catch (error) {
     // Permission denied ist OK - bedeutet nicht befreundet
-    if (error.code === 'permission-denied') {
+    if (getErrorCode(error) === 'permission-denied') {
       return false;
     }
     throw error;

@@ -10,6 +10,7 @@ import {
   getMatch as getMatchService,
 } from '../../services/matchService';
 import { logger } from '../../utils/logger';
+import { getErrorMessage } from '../../utils/errors';
 
 export interface UseMatchReturn {
   match: Match | null;
@@ -77,8 +78,8 @@ export const useMatch = (matchId?: string): UseMatchReturn => {
         }
 
         return newMatchId;
-      } catch (err: any) {
-        const errorMessage = err.message || 'Fehler beim Erstellen des Matches';
+      } catch (err) {
+        const errorMessage = getErrorMessage(err, 'Fehler beim Erstellen des Matches');
         setError(errorMessage);
         setLoading(false);
         throw new Error(errorMessage);
@@ -100,8 +101,8 @@ export const useMatch = (matchId?: string): UseMatchReturn => {
       if (import.meta.env.DEV) {
         logger.debug('✅ Match accepted:', activeMatchId);
       }
-    } catch (err: any) {
-      const errorMessage = err.message || 'Fehler beim Akzeptieren des Matches';
+    } catch (err) {
+      const errorMessage = getErrorMessage(err, 'Fehler beim Akzeptieren des Matches');
       setError(errorMessage);
       throw new Error(errorMessage);
     }
@@ -121,8 +122,8 @@ export const useMatch = (matchId?: string): UseMatchReturn => {
         if (import.meta.env.DEV) {
           logger.debug('🎮 Game state updated');
         }
-      } catch (err: any) {
-        const errorMessage = err.message || 'Fehler beim Update des Game-States';
+      } catch (err) {
+        const errorMessage = getErrorMessage(err, 'Fehler beim Update des Game-States');
         setError(errorMessage);
         throw new Error(errorMessage);
       }
@@ -143,8 +144,8 @@ export const useMatch = (matchId?: string): UseMatchReturn => {
       if (import.meta.env.DEV) {
         logger.debug('🏁 Match finished:', activeMatchId);
       }
-    } catch (err: any) {
-      const errorMessage = err.message || 'Fehler beim Beenden des Matches';
+    } catch (err) {
+      const errorMessage = getErrorMessage(err, 'Fehler beim Beenden des Matches');
       setError(errorMessage);
       throw new Error(errorMessage);
     }
@@ -158,8 +159,8 @@ export const useMatch = (matchId?: string): UseMatchReturn => {
       const loadedMatch = await getMatchService(matchId);
       setMatch(loadedMatch);
       setActiveMatchId(matchId);
-    } catch (err: any) {
-      const errorMessage = err.message || 'Fehler beim Laden des Matches';
+    } catch (err) {
+      const errorMessage = getErrorMessage(err, 'Fehler beim Laden des Matches');
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {

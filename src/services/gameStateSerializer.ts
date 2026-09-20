@@ -7,7 +7,7 @@
 
 import { EnhancedGameState } from '../cards/enhancedGameController';
 import { Card } from '../cards/types/card';
-import { GameState, Position, PieceType } from '../core/types';
+import { GameState, Position, PieceType, Color, Board } from '../core/types';
 import { PlayerHand } from '../cards/moveCards/handManagerV2';
 import { createMoveCard } from '../cards/moveCards/moveCardGenerator';
 import { logger } from '../utils/logger';
@@ -36,33 +36,33 @@ export interface SerializedGameState {
     usedCardIds: string[];
   };
   pendingSpecialCardDecision: {
-    player: string;
+    player: Color;
     cardId: string;
   } | null;
   whiteDrawModifier: number;
   blackDrawModifier: number;
-  skipNextTurn: string | null;
-  skipTurnAfterNext: string | null;
-  freeMoveEnabled: string | null;
+  skipNextTurn: Color | null;
+  skipTurnAfterNext: Color | null;
+  freeMoveEnabled: Color | null;
   whiteFocusedPieceType: string | null;
   blackFocusedPieceType: string | null;
   pendingPieceTypeChoice: {
-    player: string;
+    player: Color;
     cardId: string;
   } | null;
   pendingCardSelection: {
-    player: string;
+    player: Color;
     action: 'recover' | 'activate';
     maxCount: number;
     triggeringCardId: string;
   } | null;
   pendingBoardAction: {
-    player: string;
+    player: Color;
     action: 'swapPieces' | 'placeTrap' | 'convertPawn';
     cardId: string;
   } | null;
   playHistory: {
-    player: string;
+    player: Color;
     cardId: string;
     turnNumber: number;
     isMoveCard: boolean;
@@ -140,26 +140,26 @@ function algebraicToPosition(algebraic: string): { row: number; col: number } {
  * Clean object by removing undefined values (Firebase doesn't allow undefined)
  * Recursively processes nested objects and arrays
  */
-function cleanUndefined(obj: any): any {
-  if (obj === null || obj === undefined) {
-    return null;
+function cleanUndefined<T>(value: T): T {
+  if (value === null || value === undefined) {
+    return null as T;
   }
-  
-  if (Array.isArray(obj)) {
-    return obj.map(cleanUndefined);
+
+  if (Array.isArray(value)) {
+    return value.map(cleanUndefined) as T;
   }
-  
-  if (typeof obj === 'object') {
-    const cleaned: any = {};
-    for (const key in obj) {
-      if (obj[key] !== undefined) {
-        cleaned[key] = cleanUndefined(obj[key]);
+
+  if (typeof value === 'object') {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      if (entry !== undefined) {
+        cleaned[key] = cleanUndefined(entry);
       }
     }
-    return cleaned;
+    return cleaned as T;
   }
-  
-  return obj;
+
+  return value;
 }
 
 /**
@@ -233,8 +233,8 @@ export function serializeGameState(
  */
 function deserializeMoveCard(
   serialized: SerializedMoveCard,
-  board: any,
-  color: 'white' | 'black'
+  board: Board,
+  color: Color
 ): Card | null {
   const from: Position = serialized.from;
   const to: Position = serialized.to;
@@ -493,27 +493,27 @@ export function deserializeGameState(
       used: blackDeckData.usedCardIds.map((id: string) => blackLookup.get(id)!).filter((c: Card | undefined) => c !== undefined),
     },
     pendingSpecialCardDecision: serialized.pendingSpecialCardDecision ? {
-      player: serialized.pendingSpecialCardDecision.player as any,
+      player: serialized.pendingSpecialCardDecision.player,
       card: findCard(serialized.pendingSpecialCardDecision.cardId),
     } : null,
     whiteDrawModifier: serialized.whiteDrawModifier || 0,
     blackDrawModifier: serialized.blackDrawModifier || 0,
-    skipNextTurn: serialized.skipNextTurn as any,
-    skipTurnAfterNext: serialized.skipTurnAfterNext as any,
-    freeMoveEnabled: serialized.freeMoveEnabled as any,
+    skipNextTurn: serialized.skipNextTurn,
+    skipTurnAfterNext: serialized.skipTurnAfterNext,
+    freeMoveEnabled: serialized.freeMoveEnabled,
     whiteFocusedPieceType: serialized.whiteFocusedPieceType || null,
     blackFocusedPieceType: serialized.blackFocusedPieceType || null,
-    pendingPieceTypeChoice: serialized.pendingPieceTypeChoice as any,
+    pendingPieceTypeChoice: serialized.pendingPieceTypeChoice,
     pendingCardSelection: serialized.pendingCardSelection ? {
       ...serialized.pendingCardSelection,
-      player: serialized.pendingCardSelection.player as any,
+      player: serialized.pendingCardSelection.player,
     } : null,
-    pendingBoardAction: serialized.pendingBoardAction as any,
+    pendingBoardAction: serialized.pendingBoardAction,
     playHistory: (serialized.playHistory || []).map(h => {
       // Move cards aren't in the deck - create a minimal Card from the ID
       if (h.isMoveCard) {
         return {
-          player: h.player as any,
+          player: h.player,
           card: {
             id: h.cardId,
             name: h.cardId.replace('move-', '').toUpperCase(),
@@ -535,7 +535,7 @@ export function deserializeGameState(
       }
       // Special cards can be found in the deck
       return {
-        player: h.player as any,
+        player: h.player,
         card: findCard(h.cardId),
         turnNumber: h.turnNumber,
         isMoveCard: h.isMoveCard,

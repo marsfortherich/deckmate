@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { SavedDeck, getUserDecks, deleteDeck, MAX_DECKS } from '../../services/deckService';
+import { getErrorMessage } from '../../utils/errors';
 
 export const DeckManager: React.FC = () => {
   const navigate = useNavigate();
@@ -38,8 +39,8 @@ export const DeckManager: React.FC = () => {
       await deleteDeck(user.uid, deckId);
       setDecks(decks.filter(d => d.id !== deckId));
       setDeletingId(null);
-    } catch (err: any) {
-      alert(`Fehler beim Löschen: ${err.message}`);
+    } catch (err) {
+      alert(`Fehler beim Löschen: ${getErrorMessage(err)}`);
     }
   };
 

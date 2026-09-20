@@ -8,6 +8,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { SavedDeck, getUserDecks } from '../../services/deckService';
 import { selectDeck, subscribeToMatch } from '../../services/matchService';
 import { logger } from '../../utils/logger';
+import { getErrorMessage } from '../../utils/errors';
 
 export const DeckSelection: React.FC = () => {
   const { matchId } = useParams<{ matchId: string }>();
@@ -81,9 +82,9 @@ export const DeckSelection: React.FC = () => {
       logger.debug('✅ Deck selected successfully');
       // selectDeck automatically updates status to 'pending' when both ready
       // The useEffect above will navigate when that happens
-    } catch (err: any) {
+    } catch (err) {
       console.error('❌ Error selecting deck:', err);
-      alert(`Fehler: ${err.message}`);
+      alert(`Fehler: ${getErrorMessage(err)}`);
     } finally {
       setSelecting(false);
     }

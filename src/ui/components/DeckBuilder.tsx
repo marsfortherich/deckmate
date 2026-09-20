@@ -9,6 +9,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { CARD_LIBRARY, getRarityColor, validateDeck } from '../../cards/cardLibrary.js';
 import { Card } from '../../cards/types/card.js';
 import { saveDeck, updateDeck, getDeck, canCreateDeck } from '../../services/deckService';
+import { getErrorMessage } from '../../utils/errors';
 
 interface DeckBuilderProps {
   onDeckComplete: (deck: Card[]) => void;
@@ -172,8 +173,8 @@ export const DeckBuilder: React.FC<DeckBuilderProps> = ({
       }
       
       onDeckComplete(deck); // Navigate back
-    } catch (err: any) {
-      alert(`Fehler beim Speichern: ${err.message}`);
+    } catch (err) {
+      alert(`Fehler beim Speichern: ${getErrorMessage(err)}`);
     } finally {
       setSaving(false);
     }

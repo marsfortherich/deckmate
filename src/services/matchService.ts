@@ -19,6 +19,7 @@ import { Card } from '../cards/types/card';
 import { CARD_LIBRARY } from '../cards/cardLibrary';
 import { Move } from '../core/types';
 import { logger } from '../utils/logger';
+import { getErrorMessage, getErrorCode } from '../utils/errors';
 
 export type MatchMode = 'unranked';
 export type MatchStatus = 
@@ -515,8 +516,8 @@ export const subscribeIncomingChallenges = (
     (error) => {
       console.error('❌ Error subscribing to challenges:', error);
       console.error('Error details:', {
-        code: error.code,
-        message: error.message,
+        code: getErrorCode(error),
+        message: getErrorMessage(error),
       });
       // Call with empty array on error
       callback([]);
@@ -569,8 +570,8 @@ export const subscribeAcceptedChallenges = (
     (error) => {
       console.error('❌ Error subscribing to accepted challenges:', error);
       console.error('Error details:', {
-        code: error.code,
-        message: error.message,
+        code: getErrorCode(error),
+        message: getErrorMessage(error),
       });
       callback([]);
     }
@@ -593,9 +594,9 @@ export const initializeMatchGameState = async (matchId: string): Promise<void> =
     if (import.meta.env.DEV) {
       logger.debug('✅ Match initialized:', result.data);
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('❌ Error initializing match:', err);
-    throw new Error(err.message || 'Failed to initialize match');
+    throw new Error(getErrorMessage(err, 'Failed to initialize match'));
   }
 };
 
@@ -619,9 +620,9 @@ export const makeOnlineMove = async (
     if (import.meta.env.DEV) {
       logger.debug('✅ Move completed:', result.data);
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('❌ Error making move:', err);
-    throw new Error(err.message || 'Failed to make move');
+    throw new Error(getErrorMessage(err, 'Failed to make move'));
   }
 };
 
@@ -646,8 +647,8 @@ export const playOnlineCard = async (
     if (import.meta.env.DEV) {
       logger.debug('✅ Card played:', result.data);
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('❌ Error playing card:', err);
-    throw new Error(err.message || 'Failed to play card');
+    throw new Error(getErrorMessage(err, 'Failed to play card'));
   }
 };
