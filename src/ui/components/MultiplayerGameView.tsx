@@ -145,7 +145,7 @@ export const MultiplayerGameView: React.FC<MultiplayerGameViewProps> = ({
       setRetreatablePawns([]);
       setFirstPiecePos(null);
     }
-  }, [playerView?.currentPlayer, currentPlayer]);
+  }, [playerView?.currentPlayer, playerView?.status, currentPlayer]);
   
   // Refresh view periodically to catch state changes
   useEffect(() => {

@@ -192,7 +192,7 @@ export function useSharedGameState(
     };
 
     initController();
-  }, [matchId, whiteDeck, blackDeck, refreshView]);
+  }, [matchId, whiteDeck, blackDeck, refreshView, player]);
 
   // Subscribe to RTDB updates
   useEffect(() => {

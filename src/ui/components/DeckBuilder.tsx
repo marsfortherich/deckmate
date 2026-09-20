@@ -78,7 +78,7 @@ export const DeckBuilder: React.FC<DeckBuilderProps> = ({
     };
     
     checkLimit();
-  }, [user, saveMode]);
+  }, [user, saveMode, isEditMode]);
   
   // Get unique categories
   const categories = ['All', ...Array.from(new Set(CARD_LIBRARY.map(def => def.category)))];
