@@ -1,0 +1,16 @@
+# Normalise line endings: LF in the repository, native in the working copy.
+* text=auto eol=lf
+
+# Binary files - never convert
+*.png binary
+*.jpg binary
+*.jar binary
+*.dm  binary
+*.keystore binary
+*.jks binary
+
+# Generated - collapse in diffs and exclude from language stats
+package-lock.json linguist-generated=true -diff
+functions/package-lock.json linguist-generated=true -diff
+android/gradlew text eol=lf
+android/gradlew.bat text eol=crlf

@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Build output
+dist/
+dist-electron/
+functions/lib/
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+firebase-debug.log*
+firestore-debug.log*
+database-debug.log*
+ui-debug.log*
+
+# Firebase
+.firebase/
+.runtimeconfig.json
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Android (Capacitor)
+android/build/
+android/app/build/
+android/.gradle/
+android/.idea/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/app/src/main/res/xml/config.xml
+*.keystore
+*.jks
+
+# Test / coverage
+coverage/
+
+# Android release build artifacts
+android/app/release/

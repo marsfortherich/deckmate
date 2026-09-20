@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "status": {
+      "$uid": {
+        ".read": true,
+        ".write": "auth != null && $uid === auth.uid"
+      }
+    },
+    "games": {
+      "$matchId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}
